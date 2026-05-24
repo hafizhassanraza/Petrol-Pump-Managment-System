@@ -1,10 +1,10 @@
 <div class="sidebar">
 
-    <div class="p-3 text-white text-center border-bottom">
-
-        <h4>Fuel Station</h4>
-
+    <div class="mt-5">
+        
     </div>
+
+    
 
 
     <a href="{{ url('/') }}">

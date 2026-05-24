@@ -44,7 +44,13 @@
 
         .content{
             width: 100%;
-            padding: 20px;
+
+        }
+
+        .page-content{
+            width: 100%;
+            padding-left: 20px;
+            padding-right: 20px;
         }
 
         .card-box{
@@ -70,13 +76,16 @@
         {{-- NAVBAR --}}
         @include('layouts.navbar')
 
+        <div class="page-content">
+            
 
-        {{-- PAGE CONTENT --}}
-        @yield('content')
+            {{-- PAGE CONTENT --}}
+            @yield('content')
 
 
-        {{-- FOOTER --}}
-        @include('layouts.footer')
+            {{-- FOOTER --}}
+            @include('layouts.footer')
+        </div>
 
     </div>
 

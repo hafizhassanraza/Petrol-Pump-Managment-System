@@ -84,6 +84,8 @@ class EmployeeShiftController extends Controller
 
             'cash_received' => 'required|numeric|min:0',
 
+            'online_received' => 'required|numeric|min:0',
+
         ]);
 
 
@@ -122,17 +124,9 @@ class EmployeeShiftController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $totalLiters =
-            $request->closing_reading
-            - $shift->opening_reading;
-
-
-        $testingLiters =
-            $request->testing_liters ?? 0;
-
-
-        $netLiters =
-            $totalLiters - $testingLiters;
+        $totalLiters = $request->closing_reading - $shift->opening_reading;
+        $testingLiters = $request->testing_liters ?? 0;
+        $netLiters = $totalLiters - $testingLiters;
 
 
         /*
@@ -141,12 +135,8 @@ class EmployeeShiftController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $price = ProductPrice::where(
-            'product_id',
-            $shift->nozzle->product_id
-        )
-        ->latest('effective_from')
-        ->first();
+        $product_id = $shift->nozzle->product_id;
+        $price = ProductPrice::where('product_id', $product_id)->latest('effective_from')->first();
 
 
         if (!$price) {
@@ -157,7 +147,6 @@ class EmployeeShiftController extends Controller
             );
         }
 
-
         $pricePerLiter = $price->price;
 
 
@@ -167,8 +156,7 @@ class EmployeeShiftController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $totalAmount =
-            $netLiters * $pricePerLiter;
+        $totalAmount = $netLiters * $pricePerLiter;
 
 
         /*
@@ -177,12 +165,11 @@ class EmployeeShiftController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $cashReceived =
-            $request->cash_received;
+        $cashReceived = $request->cash_received;
+        $onlineReceived = $request->online_received;
 
 
-        $difference =
-            $cashReceived - $totalAmount;
+        $difference = ($cashReceived + $onlineReceived) - $totalAmount;
 
 
         $shortage =
@@ -219,6 +206,9 @@ class EmployeeShiftController extends Controller
 
             'cash_received' =>
                 $cashReceived,
+
+            /* 'online_received' =>
+                $onlineReceived, */
 
             'shortage_amount' =>
                 $shortage,

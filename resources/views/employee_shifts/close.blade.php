@@ -82,11 +82,25 @@
 
         <input type="number"
                step="0.01"
-               name="cash_received"
+               name="cash_received" 
                class="form-control"
                required>
 
     </div>
+
+    <div class="mb-3">
+
+        <label>Online Received</label>
+
+        <input type="number"
+               step="0.01"
+               name="online_received" 
+               class="form-control"
+               required>
+
+    </div>
+
+
 
 
 
