@@ -13,6 +13,15 @@ class EmployeeShift extends Model
         'shift_id',
         'assigned_date',
         'opening_reading',
+        'closing_reading',
+        'testing_liters',
+        'total_liters',
+        'total_amount',
+        'cash_received',
+        'online_received',
+        'shortage_amount',
+        'extra_amount',
+        'submitted_at',
         'status',
     ];
 

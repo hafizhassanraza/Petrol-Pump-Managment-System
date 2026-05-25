@@ -23,10 +23,7 @@ class OwnerFuelUsageController extends Controller
     public function create()
     {
         return view('owner_fuel_usages.create', [
-
-            'products' => Product::where('status', 1)->get(),
-
-            'nozzles' => Nozzle::where('status', 1)->get(),
+            'nozzles' => Nozzle::where('status', 1)->with('product')->get(),
         ]);
     }
 
@@ -34,38 +31,27 @@ class OwnerFuelUsageController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-
-            'product_id' => 'required',
-
             'nozzle_id' => 'required',
-
             'liters' => 'required|numeric|min:0.1',
-
         ]);
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | GET PRICE (latest)
-        |--------------------------------------------------------------------------
-        */
+        // derive nozzle and product
+        $nozzle = Nozzle::with(['product', 'tank'])->find($request->nozzle_id);
 
-        $price = \App\Models\ProductPrice::where(
-            'product_id',
-            $request->product_id
-        )
-        ->latest('effective_from')
-        ->first();
-
-
-        if (!$price) {
-
-            return back()->with(
-                'error',
-                'Price not found for product.'
-            );
+        if (!$nozzle || !$nozzle->product) {
+            return back()->with('error', 'Selected nozzle or its product not found.');
         }
 
+        $productId = $nozzle->product_id;
+
+        $price = \App\Models\ProductPrice::where('product_id', $productId)
+            ->latest('effective_from')
+            ->first();
+
+        if (!$price) {
+            return back()->with('error', 'Price not found for product.');
+        }
 
         $total = $request->liters * $price->price;
 
@@ -77,29 +63,17 @@ class OwnerFuelUsageController extends Controller
         */
 
         OwnerFuelUsage::create([
-
-            'product_id' => $request->product_id,
-
+            'product_id' => $productId,
             'nozzle_id' => $request->nozzle_id,
-
             'employee_id' => $request->employee_id,
-
             'vehicle_no' => $request->vehicle_no,
-
             'person_name' => $request->person_name,
-
             'purpose' => $request->purpose,
-
             'liters' => $request->liters,
-
             'price_per_liter' => $price->price,
-
             'total_amount' => $total,
-
             'usage_datetime' => now(),
-
             'notes' => $request->notes,
-
             'created_by' => 1,
         ]);
 
@@ -110,14 +84,15 @@ class OwnerFuelUsageController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $nozzle = Nozzle::find($request->nozzle_id);
-
+        // Reduce tank stock if available and sufficient
         if ($nozzle && $nozzle->tank) {
+            $tank = $nozzle->tank;
 
-            $nozzle->tank->decrement(
-                'current_stock_liters',
-                $request->liters
-            );
+            if ($tank->current_stock_liters < $request->liters) {
+                return back()->with('error', 'Insufficient stock in tank for this nozzle.');
+            }
+
+            $tank->decrement('current_stock_liters', $request->liters);
         }
 
 

@@ -4,14 +4,9 @@
 
 <h2>Tank Variance Report</h2>
 
-<div>
-
-    <a href="{{ route('reports.variance.pdf') }}"
-    class="btn btn-danger">
-
-        Download PDF
-    </a>
-
+<div class="d-flex justify-content-end mb-3">
+    <a href="{{ route('reports.variance.pdf') }}" class="btn btn-danger me-2">⬇ PDF</a>
+    <a href="{{ route('reports.variance.csv') }}" class="btn btn-secondary">⬇ CSV</a>
 </div>
 
 

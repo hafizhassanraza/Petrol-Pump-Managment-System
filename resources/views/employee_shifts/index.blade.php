@@ -260,6 +260,7 @@
                     <th>Liters</th>
                     <th>Amount</th>
                     <th>Cash</th>
+                    <th>Online</th>
                     <th>Shortage</th>
                     <th>Extra</th>
                     <th>Status</th>
@@ -284,6 +285,7 @@
                     <td class="fw-semibold">{{ $shift->total_liters ?? '-' }}</td>
                     <td class="fw-semibold">{{ $shift->total_amount ?? '-' }}</td>
                     <td class="fw-semibold">{{ $shift->cash_received ?? '-' }}</td>
+                    <td class="fw-semibold">{{ $shift->online_received ?? '-' }}</td>
                     <td class="fw-semibold">
                         <span class="text-danger">
                             {{ $shift->shortage_amount ?? 0 }}
@@ -334,7 +336,7 @@
                 @empty
 
                 <tr>
-                    <td colspan="14" class="text-center">
+                    <td colspan="15" class="text-center">
                         No shifts assigned yet.
                     </td>
                 </tr>

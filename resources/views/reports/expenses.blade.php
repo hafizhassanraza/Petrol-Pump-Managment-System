@@ -3,14 +3,9 @@
 @section('content')
 
 <h2>Expense Report</h2>
-<div>
-
-    <a href="{{ route('reports.expenses.pdf') }}"
-   class="btn btn-danger">
-
-    Download PDF
-</a>
-
+<div class="d-flex justify-content-end mb-3">
+    <a href="{{ route('reports.expenses.pdf') }}" class="btn btn-danger me-2">⬇ PDF</a>
+    <a href="{{ route('reports.expenses.csv') }}" class="btn btn-secondary">⬇ CSV</a>
 </div>
 
 <table class="table table-bordered">

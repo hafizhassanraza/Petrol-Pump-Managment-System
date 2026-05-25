@@ -8,6 +8,7 @@ use App\Models\Nozzle;
 use App\Models\Shift;
 use Illuminate\Http\Request;
 use App\Models\ProductPrice;
+use Illuminate\Support\Facades\Log;
 
 class EmployeeShiftController extends Controller
 {
@@ -73,26 +74,29 @@ class EmployeeShiftController extends Controller
         return view('employee_shifts.close', compact('shift'));
     }
 
-
     public function close(Request $request, $id)
     {
-        $request->validate([
-
-            'closing_reading' => 'required|numeric|min:0',
-
-            'testing_liters' => 'nullable|numeric|min:0',
-
-            'cash_received' => 'required|numeric|min:0',
-
-            'online_received' => 'required|numeric|min:0',
-
+        Log::info('================ SHIFT CLOSE STARTED ================', [
+            'shift_id' => $id,
+            'request_data' => $request->all(),
+            'time' => now()->toDateTimeString(),
         ]);
 
+        $request->validate([
+            'closing_reading' => 'required|numeric|min:0',
+            'testing_liters' => 'nullable|numeric|min:0',
+            'cash_received' => 'required|numeric|min:0',
+            'online_received' => 'required|numeric|min:0',
+        ]);
 
-        $shift = EmployeeShift::with([
-            'nozzle.product'
-        ])->findOrFail($id);
+        Log::info('Validation passed');
 
+        $shift = EmployeeShift::with(['nozzle.product', 'nozzle.tank'])
+            ->findOrFail($id);
+
+        Log::info('Shift loaded', [
+            'shift' => $shift->toArray()
+        ]);
 
         /*
         |--------------------------------------------------------------------------
@@ -102,20 +106,24 @@ class EmployeeShiftController extends Controller
 
         if ($shift->status != 'active') {
 
-            return back()->with(
-                'error',
-                'Shift already closed.'
-            );
-        }
+            Log::warning('Shift already closed', [
+                'current_status' => $shift->status
+            ]);
 
+            return back()->with('error', 'Shift already closed.');
+        }
 
         if ($request->closing_reading < $shift->opening_reading) {
 
-            return back()->with(
-                'error',
-                'Closing reading cannot be smaller than opening reading.'
-            );
+            Log::warning('Invalid closing reading', [
+                'opening_reading' => $shift->opening_reading,
+                'closing_reading' => $request->closing_reading,
+            ]);
+
+            return back()->with('error', 'Closing reading cannot be smaller than opening reading.');
         }
+
+        Log::info('Business validations passed');
 
 
         /*
@@ -125,8 +133,18 @@ class EmployeeShiftController extends Controller
         */
 
         $totalLiters = $request->closing_reading - $shift->opening_reading;
+
         $testingLiters = $request->testing_liters ?? 0;
+
         $netLiters = $totalLiters - $testingLiters;
+
+        Log::info('Liters calculated', [
+            'opening_reading' => $shift->opening_reading,
+            'closing_reading' => $request->closing_reading,
+            'total_liters' => $totalLiters,
+            'testing_liters' => $testingLiters,
+            'net_liters' => $netLiters,
+        ]);
 
 
         /*
@@ -136,18 +154,30 @@ class EmployeeShiftController extends Controller
         */
 
         $product_id = $shift->nozzle->product_id;
-        $price = ProductPrice::where('product_id', $product_id)->latest('effective_from')->first();
 
+        Log::info('Fetching product price', [
+            'product_id' => $product_id
+        ]);
+
+        $price = ProductPrice::where('product_id', $product_id)
+            ->latest('effective_from')
+            ->first();
 
         if (!$price) {
 
-            return back()->with(
-                'error',
-                'Product price not found.'
-            );
+            Log::error('Product price not found', [
+                'product_id' => $product_id
+            ]);
+
+            return back()->with('error', 'Product price not found.');
         }
 
         $pricePerLiter = $price->price;
+
+        Log::info('Product price fetched', [
+            'price_per_liter' => $pricePerLiter,
+            'effective_from' => $price->effective_from,
+        ]);
 
 
         /*
@@ -158,6 +188,12 @@ class EmployeeShiftController extends Controller
 
         $totalAmount = $netLiters * $pricePerLiter;
 
+        Log::info('Total amount calculated', [
+            'net_liters' => $netLiters,
+            'price_per_liter' => $pricePerLiter,
+            'total_amount' => $totalAmount,
+        ]);
+
 
         /*
         |--------------------------------------------------------------------------
@@ -166,22 +202,22 @@ class EmployeeShiftController extends Controller
         */
 
         $cashReceived = $request->cash_received;
-        $onlineReceived = $request->online_received;
 
+        $onlineReceived = $request->online_received;
 
         $difference = ($cashReceived + $onlineReceived) - $totalAmount;
 
+        $shortage = $difference < 0 ? abs($difference) : 0;
 
-        $shortage =
-            $difference < 0
-            ? abs($difference)
-            : 0;
+        $extra = $difference > 0 ? $difference : 0;
 
-
-        $extra =
-            $difference > 0
-            ? $difference
-            : 0;
+        Log::info('Payment calculations completed', [
+            'cash_received' => $cashReceived,
+            'online_received' => $onlineReceived,
+            'difference' => $difference,
+            'shortage' => $shortage,
+            'extra' => $extra,
+        ]);
 
 
         /*
@@ -190,38 +226,23 @@ class EmployeeShiftController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        Log::info('Updating shift record');
         $shift->update([
-
-            'closing_reading' =>
-                $request->closing_reading,
-
-            'testing_liters' =>
-                $testingLiters,
-
-            'total_liters' =>
-                $netLiters,
-
-            'total_amount' =>
-                $totalAmount,
-
-            'cash_received' =>
-                $cashReceived,
-
-            /* 'online_received' =>
-                $onlineReceived, */
-
-            'shortage_amount' =>
-                $shortage,
-
-            'extra_amount' =>
-                $extra,
-
-            'submitted_at' =>
-                now(),
-
-            'status' =>
-                'submitted',
+            'closing_reading' => $request->closing_reading,
+            'testing_liters' => $testingLiters,
+            'total_liters' => $netLiters,
+            'total_amount' => $totalAmount,
+            'cash_received' => $cashReceived,
+            'online_received' => $onlineReceived,
+            'shortage_amount' => $shortage,
+            'extra_amount' => $extra,
+            'submitted_at' => now(),
+            'status' => 'submitted',
+            
         ]);
+
+        Log::info('Shift updated successfully');
+
 
         /*
         |--------------------------------------------------------------------------
@@ -233,11 +254,17 @@ class EmployeeShiftController extends Controller
 
         if (!$tank) {
 
-            return back()->with(
-                'error',
-                'Tank not found for this nozzle.'
-            );
+            Log::error('Tank not found for nozzle', [
+                'nozzle_id' => $shift->nozzle->id
+            ]);
+
+            return back()->with('error', 'Tank not found for this nozzle.');
         }
+
+        Log::info('Tank loaded', [
+            'tank_id' => $tank->id,
+            'current_stock_before' => $tank->current_stock_liters,
+        ]);
 
 
         /*
@@ -248,10 +275,12 @@ class EmployeeShiftController extends Controller
 
         if ($tank->current_stock_liters < $netLiters) {
 
-            return back()->with(
-                'error',
-                'Insufficient stock in tank.'
-            );
+            Log::warning('Insufficient tank stock', [
+                'available_stock' => $tank->current_stock_liters,
+                'required_stock' => $netLiters,
+            ]);
+
+            return back()->with('error', 'Insufficient stock in tank.');
         }
 
 
@@ -261,10 +290,12 @@ class EmployeeShiftController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $tank->decrement(
-            'current_stock_liters',
-            $netLiters
-        );
+        $tank->decrement('current_stock_liters', $netLiters);
+
+        Log::info('Tank stock deducted', [
+            'deducted_liters' => $netLiters,
+            'remaining_stock' => $tank->fresh()->current_stock_liters,
+        ]);
 
 
         /*
@@ -274,20 +305,152 @@ class EmployeeShiftController extends Controller
         */
 
         $shift->nozzle->update([
+            'current_meter_reading' => $request->closing_reading,
+        ]);
 
-            'current_meter_reading' =>
-                $request->closing_reading,
-
+        Log::info('Nozzle meter updated', [
+            'nozzle_id' => $shift->nozzle->id,
+            'new_meter_reading' => $request->closing_reading,
         ]);
 
 
+        Log::info('================ SHIFT CLOSED SUCCESSFULLY ================', [
+            'shift_id' => $shift->id,
+            'employee_id' => $shift->employee_id,
+            'final_total_amount' => $totalAmount,
+            'net_liters' => $netLiters,
+        ]);
+
         return redirect()
             ->route('employee-shifts.index')
-            ->with(
-                'success',
-                'Shift closed successfully.'
-            );
+            ->with('success', 'Shift closed successfully.');
     }
+
+
+    // public function close(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'closing_reading' => 'required|numeric|min:0',
+    //         'testing_liters' => 'nullable|numeric|min:0',
+    //         'cash_received' => 'required|numeric|min:0',
+    //         'online_received' => 'required|numeric|min:0',
+    //     ]);
+
+
+    //     $shift = EmployeeShift::with(['nozzle.product'])->findOrFail($id);
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | VALIDATION
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     if ($shift->status != 'active') return back()->with('error','Shift already closed.');
+    //     if ($request->closing_reading < $shift->opening_reading) return back()->with('error','Closing reading cannot be smaller than opening reading.');
+        
+
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | CALCULATE LITERS
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $totalLiters = $request->closing_reading - $shift->opening_reading;
+    //     $testingLiters = $request->testing_liters ?? 0;
+    //     $netLiters = $totalLiters - $testingLiters;
+
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | GET PRODUCT PRICE
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $product_id = $shift->nozzle->product_id;
+    //     $price = ProductPrice::where('product_id', $product_id)->latest('effective_from')->first()
+    //     if (!$price)  return back()->with('error','Product price not found.' );
+    //     $pricePerLiter = $price->price;
+
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | TOTAL AMOUNT
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $totalAmount = $netLiters * $pricePerLiter;
+
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | CASH DIFFERENCE
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $cashReceived = $request->cash_received;
+    //     $onlineReceived = $request->online_received;
+    //     $difference = ($cashReceived + $onlineReceived) - $totalAmount;
+    //     $shortage = $difference < 0? abs($difference): 0;
+    //     $extra =$difference > 0? $difference: 0;
+
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | UPDATE SHIFT
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $shift->update([
+
+    //         'closing_reading' =>$request->closing_reading,
+    //         'testing_liters' =>$testingLiters,
+    //         'total_liters' =>$netLiters,
+    //         'total_amount' =>$totalAmount,
+    //         'cash_received' =>$cashReceived,
+    //         'shortage_amount' => $shortage,
+    //         'extra_amount' => $extra,
+    //         'submitted_at' =>now(),
+    //         'status' =>'submitted',
+    //         /* 'online_received' =>$onlineReceived, */
+    //     ]);
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | REDUCE TANK STOCK
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $tank = $shift->nozzle->tank;
+    //     if (!$tank) return back()->with('error', 'Tank not found for this nozzle.' );
+        
+
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | CHECK AVAILABLE STOCK
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     if ($tank->current_stock_liters < $netLiters)  return back()->with('error','Insufficient stock in tank.');
+        
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | DEDUCT STOCK
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $tank->decrement('current_stock_liters',$netLiters);
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | UPDATE NOZZLE METER
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $shift->nozzle->update(['current_meter_reading' =>$request->closing_reading,]);
+    //     return redirect()->route('employee-shifts.index') ->with('success','Shift closed successfully.' );
+    // }
 
 
 }

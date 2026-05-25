@@ -16,24 +16,7 @@
     @csrf
 
 
-    <div class="mb-3">
-
-        <label>Product</label>
-
-        <select name="product_id"
-                class="form-control">
-
-            @foreach($products as $p)
-
-                <option value="{{ $p->id }}">
-                    {{ $p->name }}
-                </option>
-
-            @endforeach
-
-        </select>
-
-    </div>
+    {{-- product removed: derived from selected nozzle --}}
 
 
 
@@ -46,9 +29,7 @@
 
             @foreach($nozzles as $n)
 
-                <option value="{{ $n->id }}">
-                    {{ $n->nozzle_number }}
-                </option>
+                <option value="{{ $n->id }}">{{ $n->nozzle_number }} - {{ $n->product->name ?? '-' }}</option>
 
             @endforeach
 

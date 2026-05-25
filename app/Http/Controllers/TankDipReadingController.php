@@ -10,7 +10,7 @@ class TankDipReadingController extends Controller
 {
     public function index()
     {
-        $readings = TankDipReading::with('tank')
+        $readings = TankDipReading::with('tank.product')
             ->latest()
             ->get();
 

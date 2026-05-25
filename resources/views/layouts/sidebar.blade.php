@@ -1,10 +1,10 @@
 <div class="sidebar">
 
-    <div class="mt-5">
-        
+    <div class="mt-4 text-center">
+        <a href="{{ url('/') }}">
+            <img src="{{ asset('images/logo.png') }}" alt="Logo" style="max-width:140px; max-height:60px; object-fit:contain;">
+        </a>
     </div>
-
-    
 
 
     <a href="{{ url('/') }}">

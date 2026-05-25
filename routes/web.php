@@ -24,18 +24,23 @@ Route::prefix('reports')->name('reports.')->group(function () {
 
     Route::get('/daily-sales', [ReportController::class, 'dailySales'])->name('daily-sales');
     Route::get('/daily-sales/pdf', [ReportController::class, 'dailySalesPdf'])->name('daily-sales.pdf');
+    Route::get('/daily-sales/csv', [ReportController::class, 'dailySalesCsv'])->name('daily-sales.csv');
 
     Route::get('/profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
     Route::get('/profit-loss/pdf', [ReportController::class, 'profitLossPdf'])->name('profit-loss.pdf');
+    Route::get('/profit-loss/csv', [ReportController::class, 'profitLossCsv'])->name('profit-loss.csv');
 
     Route::get('/stock', [ReportController::class, 'stock'])->name('stock');
     Route::get('/stock/pdf', [ReportController::class, 'stockPdf'])->name('stock.pdf');
+    Route::get('/stock/csv', [ReportController::class, 'stockCsv'])->name('stock.csv');
 
     Route::get('/expenses', [ReportController::class, 'expenses'])->name('expenses');
     Route::get('/expenses/pdf', [ReportController::class, 'expensesPdf'])->name('expenses.pdf');
+    Route::get('/expenses/csv', [ReportController::class, 'expensesCsv'])->name('expenses.csv');
 
     Route::get('/variance', [ReportController::class, 'variance'])->name('variance');
     Route::get('/variance/pdf', [ReportController::class, 'variancePdf'])->name('variance.pdf');
+    Route::get('/variance/csv', [ReportController::class, 'varianceCsv'])->name('variance.csv');
 
 });
 

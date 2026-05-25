@@ -16,11 +16,10 @@
 
     <h4>Net Profit: {{ $netProfit }}</h4>
 
-    <a href="{{ route('reports.profit-loss.pdf') }}"
-    class="btn btn-danger">
-
-        Download PDF
-    </a>
+    <div class="d-flex justify-content-end">
+        <a href="{{ route('reports.profit-loss.pdf') }}" class="btn btn-danger me-2">⬇ PDF</a>
+        <a href="{{ route('reports.profit-loss.csv') }}" class="btn btn-secondary">⬇ CSV</a>
+    </div>
 
 </div>
 

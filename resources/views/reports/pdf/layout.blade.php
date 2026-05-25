@@ -61,8 +61,17 @@
 <body>
 
 <div class="header">
-    <div class="company">Fuel Station Management System</div>
-    <div class="title">@yield('title')</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+        <div style="text-align:left;flex:0 0 80px;">
+            @if(file_exists(public_path('images/logo.png')))
+                <img src="{{ public_path('images/logo.png') }}" alt="Logo" style="height:60px">
+            @endif
+        </div>
+        <div style="text-align:left;">
+            <div class="company">Fuel Station Management System</div>
+            <div class="title">@yield('title')</div>
+        </div>
+    </div>
 </div>
 
 <div class="info">
