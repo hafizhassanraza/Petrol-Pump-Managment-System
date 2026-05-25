@@ -19,7 +19,7 @@ class TankController extends Controller
     {
         $tanks = Tank::with('product')
             ->latest()
-            ->get();
+            ->paginate(15);
 
         return view('tanks.index', compact('tanks'));
     }
@@ -53,8 +53,8 @@ class TankController extends Controller
             'product_id' => 'required|exists:products,id',
             'tank_number' => 'required|unique:tanks,tank_number',
             'capacity_liters' => 'required|numeric|min:1',
-            'current_stock_liters' => 'required|numeric|min:0',
-            'minimum_level' => 'required|numeric|min:0',
+            'current_stock_liters' => 'required|numeric|min:0|lte:capacity_liters',
+            'minimum_level' => 'required|numeric|min:0|lte:capacity_liters',
         ]);
 
         Tank::create([
@@ -103,8 +103,8 @@ class TankController extends Controller
             'product_id' => 'required|exists:products,id',
             'tank_number' => 'required|unique:tanks,tank_number,' . $tank->id,
             'capacity_liters' => 'required|numeric|min:1',
-            'current_stock_liters' => 'required|numeric|min:0',
-            'minimum_level' => 'required|numeric|min:0',
+            'current_stock_liters' => 'required|numeric|min:0|lte:capacity_liters',
+            'minimum_level' => 'required|numeric|min:0|lte:capacity_liters',
         ]);
 
         $tank->update([

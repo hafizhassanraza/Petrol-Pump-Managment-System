@@ -14,6 +14,12 @@ class TankDipReading extends Model
 
         'measured_liters',
 
+        'system_stock_liters',
+
+        'difference_liters',
+
+        'stock_reconciled',
+
         'notes',
 
         'created_by',

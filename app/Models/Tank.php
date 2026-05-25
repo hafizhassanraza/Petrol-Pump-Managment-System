@@ -38,4 +38,9 @@ class Tank extends Model
     {
         return $this->hasMany(TankDipReading::class);
     }
+
+    public function refills()
+    {
+        return $this->hasMany(TankRefill::class);
+    }
 }

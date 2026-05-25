@@ -1,19 +1,15 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm rounded px-4 py-3 mb-4">
-
-    <div class="container-fluid">
-
-        <h5 class="mb-0 ">
-            
-        </h5>
-
-        <div class="d-flex align-items-center">
-
-            <span class="me-3 fs-5">
-                Welcome, Admin
-            </span>
-
-        </div>
-
+<header class="topbar">
+    <h1 class="topbar-title">{{ $pageTitle ?? 'Fuel Station' }}</h1>
+    <div class="d-flex align-items-center gap-3">
+        <span class="text-muted small d-none d-md-inline">
+            <i class="bi bi-person-circle"></i>
+            {{ auth()->user()->name ?? 'User' }}
+        </span>
+        <form method="POST" action="{{ route('logout') }}" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </form>
     </div>
-
-</nav>
+</header>

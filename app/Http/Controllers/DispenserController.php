@@ -11,7 +11,7 @@ class DispenserController extends Controller
     {
         $dispensers = Dispenser::withCount('nozzles')
             ->latest()
-            ->get();
+            ->paginate(15);
 
         return view('dispensers.index', compact('dispensers'));
     }

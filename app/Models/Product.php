@@ -25,4 +25,9 @@ class Product extends Model
     {
         return $this->hasMany(Nozzle::class);
     }
+
+    public function latestPrice()
+    {
+        return $this->hasOne(ProductPrice::class)->latestOfMany('effective_from');
+    }
 }

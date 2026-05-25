@@ -2,64 +2,51 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\ProductPrice;
+use App\Services\ProductPriceService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ProductPriceController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $prices = ProductPrice::with(['product', 'creator'])
+            ->latest('effective_from')
+            ->paginate(20);
+
+        $products = Product::where('status', 1)
+            ->with('latestPrice')
+            ->orderBy('name')
+            ->get();
+
+        return view('product_prices.index', compact('prices', 'products'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return view('product_prices.create', [
+            'products' => Product::where('status', 1)->orderBy('name')->get(),
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
-    }
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'price' => 'required|numeric|min:0.01',
+            'effective_from' => 'required|date',
+        ]);
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(ProductPrice $productPrice)
-    {
-        //
-    }
+        ProductPriceService::setPrice(
+            (int) $request->product_id,
+            (float) $request->price,
+            Carbon::parse($request->effective_from)
+        );
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(ProductPrice $productPrice)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, ProductPrice $productPrice)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(ProductPrice $productPrice)
-    {
-        //
+        return redirect()
+            ->route('product-prices.index')
+            ->with('success', 'Selling price updated successfully.');
     }
 }

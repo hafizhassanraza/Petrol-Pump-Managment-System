@@ -46,6 +46,17 @@
 
     </div>
 
+    @if(isset($pricePerLiter) && $pricePerLiter)
+        <div class="alert alert-info mb-3">
+            <strong>Current selling price:</strong> PKR {{ number_format($pricePerLiter, 2) }} / L
+            ({{ $shift->nozzle->product->name ?? 'Product' }}) — Amount = Net Liters × this price
+        </div>
+    @else
+        <div class="alert alert-warning mb-3">
+            No selling price set for this product.
+            <a href="{{ route('product-prices.create') }}">Add price</a> before closing.
+        </div>
+    @endif
 
     {{-- Alerts --}}
     @if(session('error'))

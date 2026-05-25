@@ -331,12 +331,6 @@
     }
 </style>
 
-<div class="report-header">
-    <h1 class="report-title">
-        <i class="bi bi-graph-up"></i> Daily Sales Report
-    </h1>
-</div>
-
 <!-- Info Cards Row -->
 <div class="row mb-4">
     <div class="col-md-6 col-lg-3">

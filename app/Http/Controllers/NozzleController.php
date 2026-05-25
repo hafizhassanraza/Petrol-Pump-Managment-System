@@ -14,7 +14,7 @@ class NozzleController extends Controller
     {
         $nozzles = Nozzle::with(['dispenser', 'tank', 'product'])
             ->latest()
-            ->get();
+            ->paginate(15);
 
         return view('nozzles.index', compact('nozzles'));
     }

@@ -9,7 +9,8 @@ class EmployeeController extends Controller
 {
     public function index()
     {
-        $employees = Employee::latest()->get();
+        $employees = Employee::latest()->paginate(15);
+
         return view('employees.index', compact('employees'));
     }
 
@@ -22,7 +23,11 @@ class EmployeeController extends Controller
     {
         $request->validate([
             'employee_code' => 'required|unique:employees,employee_code',
-            'name' => 'required',
+            'name' => 'required|string|max:255',
+            'cnic' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:20',
+            'salary' => 'nullable|numeric|min:0',
+            'joining_date' => 'nullable|date',
         ]);
 
         Employee::create([
@@ -31,12 +36,12 @@ class EmployeeController extends Controller
             'cnic' => $request->cnic,
             'phone' => $request->phone,
             'salary' => $request->salary ?? 0,
-            'joining_date' => $request->joining_date,
-            'status' => $request->status ? 1 : 0,
+            'joining_date' => $request->joining_date ?? now()->toDateString(),
+            'status' => $request->boolean('status'),
         ]);
 
         return redirect()->route('employees.index')
-            ->with('success', 'Employee created');
+            ->with('success', 'Employee created successfully.');
     }
 
     public function edit(Employee $employee)
@@ -46,10 +51,27 @@ class EmployeeController extends Controller
 
     public function update(Request $request, Employee $employee)
     {
-        $employee->update($request->all());
+        $request->validate([
+            'employee_code' => 'required|unique:employees,employee_code,' . $employee->id,
+            'name' => 'required|string|max:255',
+            'cnic' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:20',
+            'salary' => 'nullable|numeric|min:0',
+            'joining_date' => 'nullable|date',
+        ]);
+
+        $employee->update([
+            'employee_code' => $request->employee_code,
+            'name' => $request->name,
+            'cnic' => $request->cnic,
+            'phone' => $request->phone,
+            'salary' => $request->salary ?? 0,
+            'joining_date' => $request->joining_date,
+            'status' => $request->boolean('status'),
+        ]);
 
         return redirect()->route('employees.index')
-            ->with('success', 'Employee updated');
+            ->with('success', 'Employee updated successfully.');
     }
 
     public function destroy(Employee $employee)
@@ -57,6 +79,6 @@ class EmployeeController extends Controller
         $employee->delete();
 
         return redirect()->route('employees.index')
-            ->with('success', 'Employee deleted');
+            ->with('success', 'Employee deleted successfully.');
     }
 }

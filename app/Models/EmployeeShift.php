@@ -16,6 +16,7 @@ class EmployeeShift extends Model
         'closing_reading',
         'testing_liters',
         'total_liters',
+        'price_per_liter',
         'total_amount',
         'cash_received',
         'online_received',
@@ -23,6 +24,7 @@ class EmployeeShift extends Model
         'extra_amount',
         'submitted_at',
         'status',
+        'verified_by',
     ];
 
     public function employee()
