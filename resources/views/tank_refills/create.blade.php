@@ -2,7 +2,9 @@
 
 @section('content')
 
-<h2>Add Tank Refill</h2>
+<div class="page-card">
+    <h3 class="page-title">Add Tank Refill</h3>
+    <p class="page-subtitle">Record a new tank refill entry.</p>
 
 <form method="POST"
       action="{{ route('tank-refills.store') }}">
@@ -124,5 +126,7 @@
     </button>
 
 </form>
+
+</div>
 
 @endsection

@@ -2,10 +2,12 @@
 
 @section('content')
 
-<h2>Add Expense</h2>
+<div class="page-card">
+    <h3 class="page-title">Add Expense</h3>
+    <p class="page-subtitle">Record a new expense entry.</p>
 
-<form method="POST"
-      action="{{ route('expenses.store') }}">
+    <form method="POST"
+        action="{{ route('expenses.store') }}">
 
     @csrf
 
@@ -76,5 +78,7 @@
     </button>
 
 </form>
+
+</div>
 
 @endsection

@@ -2,10 +2,12 @@
 
 @section('content')
 
-<h2 class="mb-4">Create Tank</h2>
+<div class="page-card">
+    <h3 class="page-title">Create Tank</h3>
+    <p class="page-subtitle">Add a storage tank and its initial details.</p>
 
-<form action="{{ route('tanks.store') }}"
-      method="POST">
+    <form action="{{ route('tanks.store') }}"
+        method="POST">
 
     @csrf
 
@@ -126,5 +128,7 @@
     </a>
 
 </form>
+
+</div>
 
 @endsection

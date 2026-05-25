@@ -2,13 +2,15 @@
 
 @section('content')
 
-<h2>Create Nozzle</h2>
+<div class="page-card">
+    <h3 class="page-title">Create Nozzle</h3>
+    <p class="page-subtitle">Add a new nozzle and associate it with a dispenser and tank.</p>
 
-@if(session('error'))
-    <div class="alert alert-danger">{{ session('error') }}</div>
-@endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
 
-<form method="POST" action="{{ route('nozzles.store') }}">
+    <form method="POST" action="{{ route('nozzles.store') }}">
     @csrf
 
     <div class="mb-3">
@@ -55,5 +57,7 @@
 
     <button class="btn btn-success">Save</button>
 </form>
+
+</div>
 
 @endsection

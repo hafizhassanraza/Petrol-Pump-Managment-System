@@ -2,10 +2,12 @@
 
 @section('content')
 
-<h2>Tank Dip Reading</h2>
+<div class="page-card">
+    <h3 class="page-title">Add Tank Dip Reading</h3>
+    <p class="page-subtitle">Record dip readings for a tank.</p>
 
-<form method="POST"
-      action="{{ route('tank-dip-readings.store') }}">
+    <form method="POST"
+        action="{{ route('tank-dip-readings.store') }}">
 
     @csrf
 
@@ -56,5 +58,7 @@
     </button>
 
 </form>
+
+</div>
 
 @endsection

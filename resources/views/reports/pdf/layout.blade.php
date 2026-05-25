@@ -13,6 +13,10 @@
         .header {
             text-align: center;
             margin-bottom: 20px;
+            background: #16a34a;
+            color: #fff;
+            padding: 16px 18px;
+            border-radius: 10px;
         }
 
         .company {
@@ -29,6 +33,15 @@
             text-align: right;
             font-size: 11px;
             margin-bottom: 10px;
+            color: #334155;
+        }
+
+        .range-info {
+            text-align: left;
+            font-size: 11px;
+            margin-top: 8px;
+            margin-bottom: 12px;
+            color: #0f172a;
         }
 
         table {

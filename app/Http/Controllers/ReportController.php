@@ -22,11 +22,8 @@ class ReportController extends Controller
     | DAILY SALES
     |--------------------------------------------------------------------------
     */
-    public function dailySales(Request $request)
+    private function getDailySalesRange(Request $request)
     {
-        $query = EmployeeShift::with('employee','nozzle');
-
-        // Determine date range based on filter
         $filter = $request->filter ?? 'today';
         $from = $request->from;
         $to = $request->to;
@@ -43,114 +40,104 @@ class ReportController extends Controller
         } elseif ($request->from && $request->to) {
             // Use custom range
         } else {
-            // Default to today
             $from = now()->format('Y-m-d');
             $to = now()->format('Y-m-d');
         }
 
-        if ($from && $to) {
-            $query->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59']);
+        return compact('filter', 'from', 'to');
+    }
+
+    private function getDailySalesData(Request $request)
+    {
+        $range = $this->getDailySalesRange($request);
+
+        $query = EmployeeShift::with('employee', 'nozzle');
+
+        if ($range['from'] && $range['to']) {
+            $query->whereBetween('created_at', [$range['from'] . ' 00:00:00', $range['to'] . ' 23:59:59']);
         }
 
         $shifts = $query->latest()->get();
-
-        // Calculate totals
         $totalAmount = $shifts->sum('total_amount');
         $totalLiters = $shifts->sum('total_liters');
 
-        return view('reports.daily_sales', compact('shifts', 'totalAmount', 'totalLiters', 'from', 'to', 'filter'));
+        $dailyTotals = $shifts
+            ->groupBy(fn ($shift) => $shift->created_at->format('Y-m-d'))
+            ->map(function ($group, $date) {
+                return [
+                    'date' => $date,
+                    'label' => \Carbon\Carbon::parse($date)->format('d M Y'),
+                    'total_amount' => $group->sum('total_amount'),
+                    'total_liters' => $group->sum('total_liters'),
+                    'record_count' => $group->count(),
+                ];
+            })
+            ->values();
+
+        return array_merge($range, compact('shifts', 'totalAmount', 'totalLiters', 'dailyTotals'));
     }
+
+    public function dailySales(Request $request)
+    {
+        return view('reports.daily_sales', $this->getDailySalesData($request));
+    }
+
     public function dailySalesPdf(Request $request)
     {
-        $query = EmployeeShift::with('employee','nozzle');
-
-        // Determine date range based on filter
-        $filter = $request->filter ?? 'today';
-        $from = $request->from;
-        $to = $request->to;
-
-        if ($filter === 'today') {
-            $from = now()->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($filter === 'last-week') {
-            $from = now()->subDays(7)->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($filter === 'last-month') {
-            $from = now()->subDays(30)->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($request->from && $request->to) {
-            // Use custom range
-        } else {
-            // Default to today
-            $from = now()->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        }
-
-        if ($from && $to) {
-            $query->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59']);
-        }
-
-        $shifts = $query->latest()->get();
-
-        $pdf = PDF::loadView('reports.pdf.daily_sales', compact('shifts'));
+        $data = $this->getDailySalesData($request);
+        $pdf = PDF::loadView('reports.pdf.daily_sales', $data);
 
         return $pdf->download('daily-sales-report.pdf');
     }
 
     public function dailySalesCsv(Request $request)
     {
-        $query = EmployeeShift::with('employee','nozzle');
-
-        // Determine date range based on filter
-        $filter = $request->filter ?? 'today';
-        $from = $request->from;
-        $to = $request->to;
-
-        if ($filter === 'today') {
-            $from = now()->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($filter === 'last-week') {
-            $from = now()->subDays(7)->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($filter === 'last-month') {
-            $from = now()->subDays(30)->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($request->from && $request->to) {
-            // Use custom range
-        } else {
-            // Default to today
-            $from = now()->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        }
-
-        if ($from && $to) {
-            $query->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59']);
-        }
-
-        $shifts = $query->latest()->get();
-
+        $data = $this->getDailySalesData($request);
+        $shifts = $data['shifts'];
+        $dailyTotals = $data['dailyTotals'];
         $filename = 'daily-sales-' . now()->format('Y-m-d') . '.csv';
         $headers = [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => "attachment; filename=\"$filename\"",
         ];
 
-        $columns = ['Employee','Nozzle','Liters','Amount','Date'];
+        $columns = ['Employee', 'Nozzle', 'Liters', 'Amount', 'Date'];
 
-        $callback = function() use ($shifts, $columns) {
+        $callback = function () use ($shifts, $dailyTotals, $data, $columns) {
             $f = fopen('php://output', 'w');
+            fwrite($f, "\xEF\xBB\xBF");
+            fputcsv($f, ['Daily Sales Report']);
+            fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
+            fputcsv($f, ['Filter', ucfirst(str_replace('-', ' ', $data['filter']))]);
+            fputcsv($f, ['Records', $shifts->count()]);
+            fputcsv($f, []);
             fputcsv($f, $columns);
 
             foreach ($shifts as $s) {
                 fputcsv($f, [
                     $s->employee->name ?? '',
                     $s->nozzle->nozzle_number ?? '',
-                    $s->total_liters,
-                    $s->total_amount,
-                    $s->created_at,
+                    number_format($s->total_liters, 2),
+                    number_format($s->total_amount, 2),
+                    $s->created_at->format('d-m-Y H:i'),
                 ]);
             }
 
+            fputcsv($f, []);
+            fputcsv($f, ['Daily Totals']);
+            fputcsv($f, ['Date', 'Liters', 'Amount', 'Records']);
+
+            foreach ($dailyTotals as $day) {
+                fputcsv($f, [
+                    $day['label'],
+                    number_format($day['total_liters'], 2),
+                    number_format($day['total_amount'], 2),
+                    $day['record_count'],
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, ['Grand Total', number_format($data['totalLiters'], 2), number_format($data['totalAmount'], 2), $shifts->count()]);
             fclose($f);
         };
 

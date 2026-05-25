@@ -2,9 +2,11 @@
 
 @section('content')
 
-<h2>Create Dispenser</h2>
+<div class="page-card">
+    <h3 class="page-title">Create Dispenser</h3>
+    <p class="page-subtitle">Add a new dispenser device.</p>
 
-<form method="POST" action="{{ route('dispensers.store') }}">
+    <form method="POST" action="{{ route('dispensers.store') }}">
     @csrf
 
     <div class="mb-3">
@@ -30,5 +32,7 @@
     <button class="btn btn-success">Save</button>
     <a href="{{ route('dispensers.index') }}" class="btn btn-secondary">Back</a>
 </form>
+
+</div>
 
 @endsection

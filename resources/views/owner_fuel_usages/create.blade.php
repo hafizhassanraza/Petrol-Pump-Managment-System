@@ -2,16 +2,18 @@
 
 @section('content')
 
-<h2>Owner Fuel Usage</h2>
+<div class="page-card">
+    <h3 class="page-title">Add Owner Fuel Usage</h3>
+    <p class="page-subtitle">Record fuel taken by an owner/vehicle.</p>
 
-@if(session('error'))
-    <div class="alert alert-danger">
-        {{ session('error') }}
-    </div>
-@endif
+    @if(session('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
 
-<form method="POST"
-      action="{{ route('owner-fuel-usages.store') }}">
+    <form method="POST"
+          action="{{ route('owner-fuel-usages.store') }}">
 
     @csrf
 
@@ -106,5 +108,7 @@
     </button>
 
 </form>
+
+</div>
 
 @endsection

@@ -2,7 +2,9 @@
 
 @section('content')
 
-<h2>Assign Employee Shift</h2>
+<div class="page-card">
+    <h3 class="page-title">Assign Employee Shift</h3>
+    <p class="page-subtitle">Add a new shift for an employee.</p>
 
 @if(session('error'))
     <div class="alert alert-danger">
@@ -132,5 +134,7 @@
     </a>
 
 </form>
+
+</div>
 
 @endsection
