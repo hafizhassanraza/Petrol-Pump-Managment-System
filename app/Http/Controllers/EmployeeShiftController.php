@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\EmployeeShift;
 use App\Models\Nozzle;
 use App\Models\Shift;
+use App\Services\BusinessDayService;
 use App\Services\ProductPriceService;
 use App\Services\StockService;
 use App\Support\ReportRange;
@@ -18,12 +19,11 @@ class EmployeeShiftController extends Controller
     public function index(Request $request)
     {
         $range = ReportRange::fromRequest($request);
-        $from = $range['from'] . ' 00:00:00';
-        $to = $range['to'] . ' 23:59:59';
 
         $shifts = EmployeeShift::with(['employee', 'nozzle.product', 'shift'])
-            ->whereBetween('created_at', [$from, $to])
-            ->latest()
+            ->whereBetween('assigned_date', [$range['from'], $range['to']])
+            ->latest('assigned_date')
+            ->latest('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -32,10 +32,14 @@ class EmployeeShiftController extends Controller
 
     public function create()
     {
+        $businessDate = BusinessDayService::currentBusinessDate();
+        $shift = BusinessDayService::defaultShift();
+
         return view('employee_shifts.create', [
             'employees' => Employee::where('status', 1)->get(),
-            'nozzles' => Nozzle::with(['product', 'tank'])->where('status', 1)->get(),
-            'shifts' => Shift::all(),
+            'nozzles' => Nozzle::with(['product', 'tank', 'dispenser'])->where('status', 1)->get(),
+            'shift' => $shift,
+            'businessDate' => $businessDate,
         ]);
     }
 
@@ -44,14 +48,17 @@ class EmployeeShiftController extends Controller
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
             'nozzle_id' => 'required|exists:nozzles,id',
-            'shift_id' => 'required|exists:shifts,id',
             'opening_reading' => 'required|numeric|min:0',
         ]);
 
         $nozzle = Nozzle::findOrFail($request->nozzle_id);
+        $businessDate = BusinessDayService::currentBusinessDate()->toDateString();
 
-        if (EmployeeShift::where('nozzle_id', $nozzle->id)->where('status', 'active')->exists()) {
-            return back()->withInput()->with('error', 'This nozzle already has an active shift.');
+        if (EmployeeShift::where('nozzle_id', $nozzle->id)
+            ->where('status', 'active')
+            ->where('assigned_date', $businessDate)
+            ->exists()) {
+            return back()->withInput()->with('error', 'This nozzle already has an active shift for today\'s business day (9 AM – 9 AM).');
         }
 
         $opening = (float) $request->opening_reading;
@@ -67,8 +74,8 @@ class EmployeeShiftController extends Controller
         EmployeeShift::create([
             'employee_id' => $request->employee_id,
             'nozzle_id' => $request->nozzle_id,
-            'shift_id' => $request->shift_id,
-            'assigned_date' => now()->toDateString(),
+            'shift_id' => BusinessDayService::defaultShiftId(),
+            'assigned_date' => $businessDate,
             'opening_reading' => $opening,
             'status' => 'active',
         ]);

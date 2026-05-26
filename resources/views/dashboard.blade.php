@@ -120,7 +120,7 @@
 {{-- Primary KPIs --}}
 <div class="kpi-grid">
     <div class="kpi-card kpi-profit">
-        <div class="kpi-label">Today Sales</div>
+        <div class="kpi-label">Today Sales <small>(9 AM day)</small></div>
         <div class="kpi-value">PKR {{ number_format($todaySales, 0) }}</div>
         <div class="kpi-sub">{{ number_format($todayLiters, 1) }} L &middot; {{ $todayShiftCount }} shifts</div>
     </div>

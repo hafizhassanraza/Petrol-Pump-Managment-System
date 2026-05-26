@@ -35,8 +35,8 @@
         <div class="login-logo">
             <img src="{{ asset('images/logo.png') }}" alt="Fuel Station">
         </div>
-        <h1 class="login-title">Welcome Back</h1>
-        <p class="login-subtitle">Fuel Station Management System</p>
+        <h1 class="login-title">{{ config('portfolio.station_name') }}</h1>
+        <p class="login-subtitle">Fuel Station Management Portal · {{ config('portfolio.brand') }}</p>
 
         @if(session('status'))
             <div class="alert alert-success">{{ session('status') }}</div>
@@ -60,6 +60,11 @@
             </div>
             <button type="submit" class="btn btn-login">Sign In</button>
         </form>
+        <div class="text-center mt-4">
+            <a href="{{ route('home') }}" class="text-muted small text-decoration-none">
+                <i class="bi bi-arrow-left"></i> Back to {{ config('portfolio.station_name') }}
+            </a>
+        </div>
     </div>
 </body>
 </html>

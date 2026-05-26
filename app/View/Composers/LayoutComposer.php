@@ -17,7 +17,8 @@ class LayoutComposer
         $name = Route::currentRouteName() ?? '';
 
         return match (true) {
-            $name === 'dashboard' || request()->is('/') => 'Dashboard',
+            $name === 'home' => 'Home',
+            $name === 'dashboard' => 'Dashboard',
             str_starts_with($name, 'products.') => match ($name) {
                 'products.edit' => 'Edit Product',
                 default => 'Products',

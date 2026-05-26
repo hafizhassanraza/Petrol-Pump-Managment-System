@@ -9,8 +9,9 @@ use App\Models\Tank;
 use App\Models\OwnerFuelUsage;
 use App\Models\TankDipReading;
 use App\Models\TankRefill;
-use PDF;
+use App\Support\ReportRange;
 use Carbon\Carbon;
+use PDF;
 
 class ReportController extends Controller
 {
@@ -21,27 +22,7 @@ class ReportController extends Controller
 
     private function getReportRange(Request $request): array
     {
-        $filter = $request->filter ?? 'today';
-        $from = $request->from;
-        $to = $request->to;
-
-        if ($filter === 'today') {
-            $from = now()->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($filter === 'last-week') {
-            $from = now()->subDays(7)->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($filter === 'last-month') {
-            $from = now()->subDays(30)->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        } elseif ($request->from && $request->to) {
-            // custom range
-        } else {
-            $from = now()->format('Y-m-d');
-            $to = now()->format('Y-m-d');
-        }
-
-        return compact('filter', 'from', 'to');
+        return ReportRange::fromRequest($request);
     }
 
     /*
@@ -61,7 +42,7 @@ class ReportController extends Controller
         $query = EmployeeShift::with('employee', 'nozzle');
 
         if ($range['from'] && $range['to']) {
-            $query->whereBetween('created_at', [$range['from'] . ' 00:00:00', $range['to'] . ' 23:59:59']);
+            $query->whereBetween('assigned_date', [$range['from'], $range['to']]);
         }
 
         $shifts = $query->latest()->get();
@@ -69,7 +50,7 @@ class ReportController extends Controller
         $totalLiters = $shifts->sum('total_liters');
 
         $dailyTotals = $shifts
-            ->groupBy(fn ($shift) => $shift->created_at->format('Y-m-d'))
+            ->groupBy(fn ($shift) => Carbon::parse($shift->assigned_date)->format('Y-m-d'))
             ->map(function ($group, $date) {
                 return [
                     'date' => $date,
@@ -159,21 +140,23 @@ class ReportController extends Controller
     private function getProfitLossData(Request $request): array
     {
         $range = $this->getReportRange($request);
-        $from = $range['from'] . ' 00:00:00';
-        $to = $range['to'] . ' 23:59:59';
+        $from = $range['from'];
+        $to = $range['to'];
+        $fromAt = $range['fromAt'];
+        $toAt = $range['toAt'];
 
-        $sales = (float) EmployeeShift::whereBetween('created_at', [$from, $to])->sum('total_amount');
-        $salesLiters = (float) EmployeeShift::whereBetween('created_at', [$from, $to])->sum('total_liters');
-        $salesCount = EmployeeShift::whereBetween('created_at', [$from, $to])->count();
+        $sales = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_amount');
+        $salesLiters = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_liters');
+        $salesCount = EmployeeShift::whereBetween('assigned_date', [$from, $to])->count();
 
-        $expenses = (float) Expense::whereBetween('expense_date', [$range['from'], $range['to']])->sum('amount');
-        $expenseCount = Expense::whereBetween('expense_date', [$range['from'], $range['to']])->count();
-        $ownerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$from, $to])->sum('total_amount');
-        $ownerFuelLiters = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$from, $to])->sum('liters');
-        $ownerFuelCount = OwnerFuelUsage::whereBetween('usage_datetime', [$from, $to])->count();
+        $expenses = (float) Expense::whereBetween('expense_date', [$from, $to])->sum('amount');
+        $expenseCount = Expense::whereBetween('expense_date', [$from, $to])->count();
+        $ownerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->sum('total_amount');
+        $ownerFuelLiters = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->sum('liters');
+        $ownerFuelCount = OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->count();
 
-        $refillCogs = (float) TankRefill::whereBetween('received_datetime', [$from, $to])->sum('total_amount');
-        $refillLiters = (float) TankRefill::whereBetween('received_datetime', [$from, $to])->sum('quantity_liters');
+        $refillCogs = (float) TankRefill::whereBetween('received_datetime', [$fromAt, $toAt])->sum('total_amount');
+        $refillLiters = (float) TankRefill::whereBetween('received_datetime', [$fromAt, $toAt])->sum('quantity_liters');
 
         $totalCosts = $expenses + $ownerFuel + $refillCogs;
         $grossProfit = $sales - ($expenses + $ownerFuel);
@@ -182,21 +165,21 @@ class ReportController extends Controller
         $expenseRatio = $sales > 0 ? round(($expenses / $sales) * 100, 2) : 0;
         $ownerFuelRatio = $sales > 0 ? round(($ownerFuel / $sales) * 100, 2) : 0;
 
-        $expenseByType = Expense::whereBetween('expense_date', [$range['from'], $range['to']])
+        $expenseByType = Expense::whereBetween('expense_date', [$from, $to])
             ->selectRaw('expense_type, SUM(amount) as total, COUNT(*) as count')
             ->groupBy('expense_type')
             ->orderByDesc('total')
             ->get();
 
-        $salesByDay = EmployeeShift::whereBetween('created_at', [$from, $to])
+        $salesByDay = EmployeeShift::whereBetween('assigned_date', [$from, $to])
             ->get()
-            ->groupBy(fn ($s) => $s->created_at->format('Y-m-d'));
+            ->groupBy(fn ($s) => Carbon::parse($s->assigned_date)->format('Y-m-d'));
 
-        $expensesByDay = Expense::whereBetween('expense_date', [$range['from'], $range['to']])
+        $expensesByDay = Expense::whereBetween('expense_date', [$from, $to])
             ->get()
             ->groupBy(fn ($e) => Carbon::parse($e->expense_date)->format('Y-m-d'));
 
-        $ownerFuelByDay = OwnerFuelUsage::whereBetween('usage_datetime', [$from, $to])
+        $ownerFuelByDay = OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])
             ->get()
             ->groupBy(fn ($o) => Carbon::parse($o->usage_datetime)->format('Y-m-d'));
 

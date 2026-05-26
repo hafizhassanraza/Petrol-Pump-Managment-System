@@ -15,10 +15,12 @@ use App\Http\Controllers\OwnerFuelUsageController;
 use App\Http\Controllers\ExpensesController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProductPriceController;
+use App\Http\Controllers\LandingController;
+
+Route::get('/', [LandingController::class, 'index'])->name('home');
 
 Route::middleware('auth')->group(function () {
 
-    Route::get('/', [DashboardController::class, 'index']);
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::prefix('reports')->name('reports.')->group(function () {
