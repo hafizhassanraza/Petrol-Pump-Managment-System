@@ -24,6 +24,9 @@
     <a href="{{ route('employees.index') }}" class="{{ request()->routeIs('employees.*') ? 'active' : '' }}">
         <i class="bi bi-people"></i> Employees
     </a>
+    <a href="{{ route('employee-attendances.index') }}" class="{{ request()->routeIs('employee-attendances.*') ? 'active' : '' }}">
+        <i class="bi bi-calendar-check"></i> Attendance
+    </a>
     <a href="{{ route('employee-shifts.index') }}" class="{{ request()->routeIs('employee-shifts.*') ? 'active' : '' }}">
         <i class="bi bi-arrow-repeat"></i> Employee Shifts
     </a>

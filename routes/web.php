@@ -7,6 +7,7 @@ use App\Http\Controllers\TankController;
 use App\Http\Controllers\DispenserController;
 use App\Http\Controllers\NozzleController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeAttendanceController;
 use App\Http\Controllers\EmployeeShiftController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TankRefillsController;
@@ -40,6 +41,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/variance', [ReportController::class, 'variance'])->name('variance');
         Route::get('/variance/pdf', [ReportController::class, 'variancePdf'])->name('variance.pdf');
         Route::get('/variance/csv', [ReportController::class, 'varianceCsv'])->name('variance.csv');
+        Route::get('/attendance', [ReportController::class, 'attendance'])->name('attendance');
+        Route::get('/attendance/pdf', [ReportController::class, 'attendancePdf'])->name('attendance.pdf');
+        Route::get('/attendance/csv', [ReportController::class, 'attendanceCsv'])->name('attendance.csv');
     });
 
     Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store']);
@@ -53,6 +57,7 @@ Route::middleware('auth')->group(function () {
     Route::post('employee-shifts/{id}/verify', [EmployeeShiftController::class, 'verify'])->name('employee-shifts.verify');
 
     Route::resource('employees', EmployeeController::class);
+    Route::resource('employee-attendances', EmployeeAttendanceController::class);
     Route::resource('nozzles', NozzleController::class);
     Route::resource('dispensers', DispenserController::class);
     Route::resource('tanks', TankController::class);

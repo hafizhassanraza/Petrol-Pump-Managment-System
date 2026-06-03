@@ -7,8 +7,11 @@ use App\Models\Employee;
 use App\Models\Nozzle;
 use App\Models\Product;
 use App\Models\ProductPrice;
+use App\Models\Shift;
 use App\Models\Tank;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -23,6 +26,7 @@ class FuelStationDemoSeeder extends Seeder
         $dispenserIds = $this->seedDispensers();
         $this->seedNozzles($dispenserIds, $tankIds, $productIds);
         $this->seedEmployees();
+        $this->seedShifts();
     }
 
     private function wipeStationLayout(): void
@@ -30,6 +34,7 @@ class FuelStationDemoSeeder extends Seeder
         Schema::disableForeignKeyConstraints();
 
         foreach ([
+            'employee_attendances',
             'employee_shifts',
             'owner_fuel_usages',
             'tank_dip_readings',
@@ -51,6 +56,8 @@ class FuelStationDemoSeeder extends Seeder
 
     private function seedProducts(): array
     {
+        $createdBy = $this->adminUserId();
+
         $petrol = Product::create(['name' => 'Petrol', 'unit' => 'liter', 'status' => true]);
         $diesel = Product::create(['name' => 'Diesel', 'unit' => 'liter', 'status' => true]);
 
@@ -58,17 +65,32 @@ class FuelStationDemoSeeder extends Seeder
             'product_id' => $petrol->id,
             'price' => 381.00,
             'effective_from' => now()->startOfDay(),
-            'created_by' => 1,
+            'created_by' => $createdBy,
         ]);
 
         ProductPrice::create([
             'product_id' => $diesel->id,
             'price' => 380.00,
             'effective_from' => now()->startOfDay(),
-            'created_by' => 1,
+            'created_by' => $createdBy,
         ]);
 
         return ['petrol' => $petrol->id, 'diesel' => $diesel->id];
+    }
+
+    private function adminUserId(): int
+    {
+        $admin = User::query()
+            ->where('email', 'admin@example.com')
+            ->first();
+
+        if (! $admin) {
+            throw new RuntimeException(
+                'Admin user not found. Run AdminUserSeeder before FuelStationDemoSeeder.'
+            );
+        }
+
+        return $admin->id;
     }
 
     private function seedTanks(array $productIds): array
@@ -188,5 +210,16 @@ class FuelStationDemoSeeder extends Seeder
             'joining_date' => now()->subMonths(8),
             'status' => true,
         ]);
+    }
+
+    private function seedShifts(): void
+    {
+        Shift::firstOrCreate(
+            ['name' => 'Business Day (9 AM – 9 AM)'],
+            [
+                'start_time' => '09:00:00',
+                'end_time' => '09:00:00',
+            ]
+        );
     }
 }

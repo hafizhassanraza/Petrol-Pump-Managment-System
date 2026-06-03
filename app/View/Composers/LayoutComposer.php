@@ -47,6 +47,11 @@ class LayoutComposer
                 'employees.edit' => 'Edit Employee',
                 default => 'Employees',
             },
+            str_starts_with($name, 'employee-attendances.') => match ($name) {
+                'employee-attendances.create' => 'Mark Attendance',
+                'employee-attendances.edit' => 'Edit Attendance',
+                default => 'Employee Attendance',
+            },
             str_starts_with($name, 'employee-shifts.') => match ($name) {
                 'employee-shifts.create' => 'Assign Shift',
                 'employee-shifts.close-form' => 'Close Shift',
@@ -75,6 +80,7 @@ class LayoutComposer
                 'reports.stock' => 'Stock Report',
                 'reports.expenses' => 'Expense Report',
                 'reports.variance' => 'Variance Report',
+                'reports.attendance' => 'Attendance Report',
                 default => 'Reports',
             },
             default => 'Fuel Station',

@@ -39,13 +39,19 @@ class BusinessDayService
         return [$from, $to];
     }
 
-    public static function defaultShift(): ?Shift
+    public static function defaultShift(): Shift
     {
-        return Shift::query()->orderBy('id')->first();
+        return Shift::query()->firstOrCreate(
+            ['name' => 'Business Day (9 AM – 9 AM)'],
+            [
+                'start_time' => '09:00:00',
+                'end_time' => '09:00:00',
+            ]
+        );
     }
 
     public static function defaultShiftId(): int
     {
-        return (int) (self::defaultShift()?->id ?? 1);
+        return self::defaultShift()->id;
     }
 }

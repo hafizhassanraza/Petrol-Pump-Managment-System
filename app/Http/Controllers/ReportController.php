@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\EmployeeAttendance;
 use App\Models\EmployeeShift;
 use App\Models\Expense;
 use App\Models\Tank;
@@ -594,6 +595,139 @@ class ReportController extends Controller
                     number_format($v['difference'], 2),
                     $v['status_label'],
                     $v['dip_date'] ?? 'No dip reading',
+                ]);
+            }
+
+            fclose($f);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ATTENDANCE REPORT
+    |--------------------------------------------------------------------------
+    */
+    private function getAttendanceData(Request $request): array
+    {
+        $range = $this->getReportRange($request);
+
+        $attendances = EmployeeAttendance::with('employee')
+            ->whereBetween('attendance_date', [$range['from'], $range['to']])
+            ->orderByDesc('attendance_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $statusCounts = collect(EmployeeAttendance::STATUSES)
+            ->mapWithKeys(fn ($status) => [
+                $status => $attendances->where('status', $status)->count(),
+            ]);
+
+        $employeeSummaries = $attendances
+            ->groupBy('employee_id')
+            ->map(function ($group) {
+                $employee = $group->first()->employee;
+
+                return [
+                    'employee_code' => $employee->employee_code ?? '—',
+                    'name' => $employee->name ?? 'Unknown',
+                    'present' => $group->where('status', 'present')->count(),
+                    'absent' => $group->where('status', 'absent')->count(),
+                    'late' => $group->where('status', 'late')->count(),
+                    'half_day' => $group->where('status', 'half_day')->count(),
+                    'on_leave' => $group->where('status', 'on_leave')->count(),
+                    'total' => $group->count(),
+                ];
+            })
+            ->sortBy('name')
+            ->values();
+
+        $dailyTotals = $attendances
+            ->groupBy(fn ($row) => Carbon::parse($row->attendance_date)->format('Y-m-d'))
+            ->map(function ($group, $date) {
+                return [
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('d M Y'),
+                    'present' => $group->where('status', 'present')->count(),
+                    'absent' => $group->where('status', 'absent')->count(),
+                    'late' => $group->where('status', 'late')->count(),
+                    'half_day' => $group->where('status', 'half_day')->count(),
+                    'on_leave' => $group->where('status', 'on_leave')->count(),
+                    'record_count' => $group->count(),
+                ];
+            })
+            ->values();
+
+        return array_merge($range, [
+            'attendances' => $attendances,
+            'totalRecords' => $attendances->count(),
+            'statusCounts' => $statusCounts,
+            'employeeSummaries' => $employeeSummaries,
+            'dailyTotals' => $dailyTotals,
+        ]);
+    }
+
+    public function attendance(Request $request)
+    {
+        return view('reports.attendance', $this->getAttendanceData($request));
+    }
+
+    public function attendancePdf(Request $request)
+    {
+        $data = $this->getAttendanceData($request);
+        $pdf = PDF::loadView('reports.pdf.attendance', $data);
+
+        return $pdf->download('attendance-report.pdf');
+    }
+
+    public function attendanceCsv(Request $request)
+    {
+        $data = $this->getAttendanceData($request);
+        $attendances = $data['attendances'];
+        $filename = 'attendance-report-' . now()->format('Y-m-d') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($attendances, $data) {
+            $f = fopen('php://output', 'w');
+            fwrite($f, "\xEF\xBB\xBF");
+            fputcsv($f, ['Employee Attendance Report']);
+            fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
+            fputcsv($f, ['Filter', ucfirst(str_replace('-', ' ', $data['filter']))]);
+            fputcsv($f, ['Records', $data['totalRecords']]);
+            fputcsv($f, []);
+            fputcsv($f, ['Date', 'Employee', 'Code', 'Status', 'Check In', 'Check Out', 'Hours', 'Notes']);
+
+            foreach ($attendances as $a) {
+                fputcsv($f, [
+                    $a->attendance_date->format('d-m-Y'),
+                    $a->employee->name ?? '',
+                    $a->employee->employee_code ?? '',
+                    $a->status_label,
+                    $a->check_in ? Carbon::parse($a->check_in)->format('H:i') : '',
+                    $a->check_out ? Carbon::parse($a->check_out)->format('H:i') : '',
+                    $a->worked_hours !== null ? number_format($a->worked_hours, 2) : '',
+                    $a->notes ?? '',
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, ['Employee Summary']);
+            fputcsv($f, ['Name', 'Code', 'Present', 'Absent', 'Late', 'Half Day', 'On Leave', 'Total']);
+
+            foreach ($data['employeeSummaries'] as $row) {
+                fputcsv($f, [
+                    $row['name'],
+                    $row['employee_code'],
+                    $row['present'],
+                    $row['absent'],
+                    $row['late'],
+                    $row['half_day'],
+                    $row['on_leave'],
+                    $row['total'],
                 ]);
             }
 

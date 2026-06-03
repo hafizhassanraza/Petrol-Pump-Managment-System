@@ -185,6 +185,17 @@
         <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
     </a>
 
+    <a href="{{ route('reports.attendance') }}" class="report-card daily">
+        <div class="card-top">
+            <div>
+                <div class="report-card-title">Attendance Report</div>
+                <div class="report-card-text">Track present, absent, late, and leave days with employee and daily summaries.</div>
+            </div>
+            <div class="card-icon"><i class="bi bi-calendar-check"></i></div>
+        </div>
+        <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
+    </a>
+
     <a href="{{ route('reports.variance') }}" class="report-card variance">
         <div class="card-top">
             <div>
