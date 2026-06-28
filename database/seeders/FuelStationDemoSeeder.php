@@ -27,6 +27,12 @@ class FuelStationDemoSeeder extends Seeder
         $this->seedNozzles($dispenserIds, $tankIds, $productIds);
         $this->seedEmployees();
         $this->seedShifts();
+        $this->seedMobilOil();
+    }
+
+    private function seedMobilOil(): void
+    {
+        $this->call(MobilOilSeeder::class, false, ['createdBy' => $this->adminUserId()]);
     }
 
     private function wipeStationLayout(): void
@@ -40,6 +46,10 @@ class FuelStationDemoSeeder extends Seeder
             'tank_dip_readings',
             'tank_refills',
             'expenses',
+            'mobil_oil_sales',
+            'mobil_oil_purchases',
+            'mobil_oil_prices',
+            'mobil_oil_products',
             'nozzles',
             'dispensers',
             'tanks',

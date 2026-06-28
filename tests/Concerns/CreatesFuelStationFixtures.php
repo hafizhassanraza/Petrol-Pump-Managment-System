@@ -4,6 +4,7 @@ namespace Tests\Concerns;
 
 use App\Models\Dispenser;
 use App\Models\Employee;
+use App\Models\MobilOilProduct;
 use App\Models\Nozzle;
 use App\Models\Product;
 use App\Models\ProductPrice;
@@ -11,6 +12,7 @@ use App\Models\Shift;
 use App\Models\Tank;
 use App\Models\User;
 use App\Services\BusinessDayService;
+use App\Services\MobilOilPriceService;
 use App\Services\ProductPriceService;
 trait CreatesFuelStationFixtures
 {
@@ -88,5 +90,29 @@ trait CreatesFuelStationFixtures
     protected function travelToBusinessHours(): void
     {
         $this->travelTo(now()->setTime(10, 0, 0));
+    }
+
+    /**
+     * @return array{user: User, product: MobilOilProduct}
+     */
+    protected function createMobilOilGraph(
+        float $stock = 50,
+        float $price = 850,
+        string $name = 'Mobil Super 1L',
+    ): array {
+        $user = $this->createOwner();
+
+        $product = MobilOilProduct::create([
+            'name' => $name,
+            'sku' => 'MOB-TEST-01',
+            'unit' => 'bottle',
+            'current_stock_qty' => $stock,
+            'minimum_level' => 5,
+            'status' => true,
+        ]);
+
+        MobilOilPriceService::setPrice($product->id, $price, now(), $user->id);
+
+        return compact('user', 'product');
     }
 }

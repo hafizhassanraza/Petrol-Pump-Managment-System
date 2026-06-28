@@ -42,6 +42,18 @@
     <a href="{{ route('expenses.index') }}" class="{{ request()->routeIs('expenses.*') ? 'active' : '' }}">
         <i class="bi bi-cash-stack"></i> Expenses
     </a>
+
+    <div class="sidebar-section-label">Mobil Oil</div>
+    <a href="{{ route('mobil-oil.products.index') }}" class="{{ request()->routeIs('mobil-oil.products.*') ? 'active' : '' }}">
+        <i class="bi bi-droplet-half"></i> Mobil Oil Products
+    </a>
+    <a href="{{ route('mobil-oil.purchases.index') }}" class="{{ request()->routeIs('mobil-oil.purchases.*') ? 'active' : '' }}">
+        <i class="bi bi-bag-plus"></i> Mobil Oil Purchases
+    </a>
+    <a href="{{ route('mobil-oil.sales.index') }}" class="{{ request()->routeIs('mobil-oil.sales.*') ? 'active' : '' }}">
+        <i class="bi bi-cart-check"></i> Mobil Oil Sales
+    </a>
+
     <a href="{{ route('reports.dashboard') }}" class="{{ request()->routeIs('reports.*') ? 'active' : '' }}">
         <i class="bi bi-bar-chart-line"></i> Reports
     </a>

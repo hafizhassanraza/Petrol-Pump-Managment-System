@@ -78,7 +78,15 @@
 <div class="filter-section">
     <h5 class="section-heading"><i class="bi bi-clipboard-data"></i> P&amp;L Summary</h5>
     <div class="pl-line">
-        <span>Total Sales <small class="text-muted">({{ $salesCount }} shifts, {{ number_format($salesLiters, 2) }} L)</small></span>
+        <span>Fuel Sales <small class="text-muted">({{ $salesCount }} shifts, {{ number_format($salesLiters, 2) }} L)</small></span>
+        <strong class="text-profit">PKR {{ number_format($fuelSales, 2) }}</strong>
+    </div>
+    <div class="pl-line">
+        <span>Mobil Oil Sales <small class="text-muted">({{ $mobilOilSalesCount }} sales, {{ number_format($mobilOilSalesQty, 2) }} units)</small></span>
+        <strong class="text-profit">PKR {{ number_format($mobilOilSales, 2) }}</strong>
+    </div>
+    <div class="pl-line" style="background:#f8fafc;">
+        <span><strong>Total Sales</strong></span>
         <strong class="text-profit">PKR {{ number_format($sales, 2) }}</strong>
     </div>
     <div class="pl-line">
@@ -92,6 +100,10 @@
     <div class="pl-line">
         <span>Tank Refill COGS <small class="text-muted">({{ number_format($refillLiters, 2) }} L purchased)</small></span>
         <strong class="text-loss">- PKR {{ number_format($refillCogs, 2) }}</strong>
+    </div>
+    <div class="pl-line">
+        <span>Mobil Oil Purchase COGS <small class="text-muted">({{ number_format($mobilOilPurchaseQty, 2) }} units purchased)</small></span>
+        <strong class="text-loss">- PKR {{ number_format($mobilOilCogs, 2) }}</strong>
     </div>
     <div class="pl-line">
         <span>Total Costs (incl. COGS)</span>

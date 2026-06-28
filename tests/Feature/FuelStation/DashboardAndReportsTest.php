@@ -32,6 +32,7 @@ class DashboardAndReportsTest extends TestCase
         $this->actingAs($user)->get(route('reports.expenses'))->assertOk();
         $this->actingAs($user)->get(route('reports.variance'))->assertOk();
         $this->actingAs($user)->get(route('reports.attendance'))->assertOk();
+        $this->actingAs($user)->get(route('reports.mobil-oil-sales'))->assertOk();
     }
 
     public function test_landing_page_is_public(): void

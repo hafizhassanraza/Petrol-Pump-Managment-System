@@ -17,6 +17,9 @@ use App\Http\Controllers\ExpensesController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProductPriceController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\MobilOilProductController;
+use App\Http\Controllers\MobilOilPurchaseController;
+use App\Http\Controllers\MobilOilSaleController;
 
 Route::get('/', [LandingController::class, 'index'])->name('home');
 
@@ -44,6 +47,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/attendance', [ReportController::class, 'attendance'])->name('attendance');
         Route::get('/attendance/pdf', [ReportController::class, 'attendancePdf'])->name('attendance.pdf');
         Route::get('/attendance/csv', [ReportController::class, 'attendanceCsv'])->name('attendance.csv');
+        Route::get('/mobil-oil-sales', [ReportController::class, 'mobilOilSales'])->name('mobil-oil-sales');
+        Route::get('/mobil-oil-sales/pdf', [ReportController::class, 'mobilOilSalesPdf'])->name('mobil-oil-sales.pdf');
+        Route::get('/mobil-oil-sales/csv', [ReportController::class, 'mobilOilSalesCsv'])->name('mobil-oil-sales.csv');
+    });
+
+    Route::prefix('mobil-oil')->name('mobil-oil.')->group(function () {
+        Route::resource('products', MobilOilProductController::class)->except(['show', 'destroy']);
+        Route::resource('purchases', MobilOilPurchaseController::class)->only(['index', 'create', 'store']);
+        Route::resource('sales', MobilOilSaleController::class)->only(['index', 'create', 'store']);
     });
 
     Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store']);

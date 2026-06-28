@@ -32,6 +32,14 @@
             background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.06));
             color: #bbf7d0; border-left-color: #10b981;
         }
+        .sidebar-section-label {
+            padding: 18px 20px 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+        }
         .main-column { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
         .topbar {
             flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e8f0;

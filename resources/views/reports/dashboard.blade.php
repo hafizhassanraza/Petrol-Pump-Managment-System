@@ -206,6 +206,17 @@
         </div>
         <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
     </a>
+
+    <a href="{{ route('reports.mobil-oil-sales') }}" class="report-card stock">
+        <div class="card-top">
+            <div>
+                <div class="report-card-title">Mobil Oil Sales</div>
+                <div class="report-card-text">Track lubricant sales by product, quantity, and revenue for the selected period.</div>
+            </div>
+            <div class="card-icon"><i class="bi bi-droplet-half"></i></div>
+        </div>
+        <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
+    </a>
 </div>
 
 @endsection

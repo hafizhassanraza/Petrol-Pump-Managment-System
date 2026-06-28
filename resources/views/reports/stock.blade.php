@@ -102,4 +102,40 @@
     @endif
 </div>
 
+@if(($mobilOilProducts ?? collect())->count() > 0)
+<div class="table-container mt-4">
+    <h5 class="section-heading p-3 mb-0"><i class="bi bi-droplet-half"></i> Mobil Oil Stock</h5>
+    <table class="excel-table">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>SKU</th>
+                <th style="text-align: right;">Current Stock</th>
+                <th style="text-align: right;">Min Level</th>
+                <th>Unit</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($mobilOilProducts as $p)
+                <tr class="{{ $p['is_low'] ? 'row-low' : '' }}">
+                    <td><strong>{{ $p['name'] }}</strong></td>
+                    <td>{{ $p['sku'] ?? '—' }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ number_format($p['current_stock'], 2) }}</td>
+                    <td style="text-align: right;">{{ number_format($p['minimum_level'], 2) }}</td>
+                    <td>{{ $p['unit'] }}</td>
+                    <td>
+                        @if($p['is_low'])
+                            <span class="badge-pill badge-low">Low Stock</span>
+                        @else
+                            <span class="badge-pill badge-ok">{{ $p['status'] }}</span>
+                        @endif
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
 @endsection

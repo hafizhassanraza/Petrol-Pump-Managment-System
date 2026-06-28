@@ -22,9 +22,19 @@ Profit &amp; Loss Report
     </thead>
     <tbody>
         <tr>
-            <td>Total Sales</td>
+            <td>Fuel Sales</td>
             <td>{{ $salesCount }} shifts, {{ number_format($salesLiters, 2) }} L</td>
-            <td>{{ number_format($sales, 2) }}</td>
+            <td>{{ number_format($fuelSales, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Mobil Oil Sales</td>
+            <td>{{ $mobilOilSalesCount }} sales, {{ number_format($mobilOilSalesQty, 2) }} units</td>
+            <td>{{ number_format($mobilOilSales, 2) }}</td>
+        </tr>
+        <tr>
+            <td><strong>Total Sales</strong></td>
+            <td></td>
+            <td><strong>{{ number_format($sales, 2) }}</strong></td>
         </tr>
         <tr>
             <td>Operating Expenses</td>
@@ -40,6 +50,11 @@ Profit &amp; Loss Report
             <td>Tank Refill COGS</td>
             <td>{{ number_format($refillLiters, 2) }} L purchased</td>
             <td>- {{ number_format($refillCogs, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Mobil Oil Purchase COGS</td>
+            <td>{{ number_format($mobilOilPurchaseQty, 2) }} units purchased</td>
+            <td>- {{ number_format($mobilOilCogs, 2) }}</td>
         </tr>
         <tr>
             <td>Gross Profit</td>

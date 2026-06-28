@@ -73,6 +73,19 @@ class LayoutComposer
                 'expenses.create' => 'Add Expense',
                 default => 'Expenses',
             },
+            str_starts_with($name, 'mobil-oil.products.') => match ($name) {
+                'mobil-oil.products.create' => 'Add Mobil Oil Product',
+                'mobil-oil.products.edit' => 'Edit Mobil Oil Product',
+                default => 'Mobil Oil Products',
+            },
+            str_starts_with($name, 'mobil-oil.purchases.') => match ($name) {
+                'mobil-oil.purchases.create' => 'Record Mobil Oil Purchase',
+                default => 'Mobil Oil Purchases',
+            },
+            str_starts_with($name, 'mobil-oil.sales.') => match ($name) {
+                'mobil-oil.sales.create' => 'Record Mobil Oil Sale',
+                default => 'Mobil Oil Sales',
+            },
             str_starts_with($name, 'reports.') => match ($name) {
                 'reports.dashboard' => 'Reports',
                 'reports.daily-sales' => 'Daily Sales Report',
@@ -81,6 +94,7 @@ class LayoutComposer
                 'reports.expenses' => 'Expense Report',
                 'reports.variance' => 'Variance Report',
                 'reports.attendance' => 'Attendance Report',
+                'reports.mobil-oil-sales' => 'Mobil Oil Sales Report',
                 default => 'Reports',
             },
             default => 'Fuel Station',

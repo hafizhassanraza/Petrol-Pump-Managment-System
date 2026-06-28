@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\EmployeeAttendance;
 use App\Models\EmployeeShift;
 use App\Models\Expense;
+use App\Models\MobilOilProduct;
+use App\Models\MobilOilPurchase;
+use App\Models\MobilOilSale;
 use App\Models\Tank;
 use App\Models\OwnerFuelUsage;
 use App\Models\TankDipReading;
@@ -146,9 +149,15 @@ class ReportController extends Controller
         $fromAt = $range['fromAt'];
         $toAt = $range['toAt'];
 
-        $sales = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_amount');
+        $fuelSales = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_amount');
         $salesLiters = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_liters');
         $salesCount = EmployeeShift::whereBetween('assigned_date', [$from, $to])->count();
+
+        $mobilOilSales = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('total_amount');
+        $mobilOilSalesQty = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('quantity');
+        $mobilOilSalesCount = MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->count();
+
+        $sales = $fuelSales + $mobilOilSales;
 
         $expenses = (float) Expense::whereBetween('expense_date', [$from, $to])->sum('amount');
         $expenseCount = Expense::whereBetween('expense_date', [$from, $to])->count();
@@ -159,7 +168,10 @@ class ReportController extends Controller
         $refillCogs = (float) TankRefill::whereBetween('received_datetime', [$fromAt, $toAt])->sum('total_amount');
         $refillLiters = (float) TankRefill::whereBetween('received_datetime', [$fromAt, $toAt])->sum('quantity_liters');
 
-        $totalCosts = $expenses + $ownerFuel + $refillCogs;
+        $mobilOilCogs = (float) MobilOilPurchase::whereBetween('received_datetime', [$fromAt, $toAt])->sum('total_amount');
+        $mobilOilPurchaseQty = (float) MobilOilPurchase::whereBetween('received_datetime', [$fromAt, $toAt])->sum('quantity');
+
+        $totalCosts = $expenses + $ownerFuel + $refillCogs + $mobilOilCogs;
         $grossProfit = $sales - ($expenses + $ownerFuel);
         $netProfit = $sales - $totalCosts;
         $profitMargin = $sales > 0 ? round(($grossProfit / $sales) * 100, 2) : 0;
@@ -184,16 +196,23 @@ class ReportController extends Controller
             ->get()
             ->groupBy(fn ($o) => Carbon::parse($o->usage_datetime)->format('Y-m-d'));
 
+        $mobilOilSalesByDay = MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])
+            ->get()
+            ->groupBy(fn ($s) => Carbon::parse($s->sold_datetime)->format('Y-m-d'));
+
         $allDates = collect()
             ->merge($salesByDay->keys())
             ->merge($expensesByDay->keys())
             ->merge($ownerFuelByDay->keys())
+            ->merge($mobilOilSalesByDay->keys())
             ->unique()
             ->sort()
             ->values();
 
-        $dailyBreakdown = $allDates->map(function ($date) use ($salesByDay, $expensesByDay, $ownerFuelByDay) {
-            $daySales = (float) ($salesByDay->get($date)?->sum('total_amount') ?? 0);
+        $dailyBreakdown = $allDates->map(function ($date) use ($salesByDay, $expensesByDay, $ownerFuelByDay, $mobilOilSalesByDay) {
+            $dayFuelSales = (float) ($salesByDay->get($date)?->sum('total_amount') ?? 0);
+            $dayMobilOilSales = (float) ($mobilOilSalesByDay->get($date)?->sum('total_amount') ?? 0);
+            $daySales = $dayFuelSales + $dayMobilOilSales;
             $dayExpenses = (float) ($expensesByDay->get($date)?->sum('amount') ?? 0);
             $dayOwnerFuel = (float) ($ownerFuelByDay->get($date)?->sum('total_amount') ?? 0);
             $dayCosts = $dayExpenses + $dayOwnerFuel;
@@ -201,6 +220,8 @@ class ReportController extends Controller
             return [
                 'date' => $date,
                 'label' => Carbon::parse($date)->format('d M Y'),
+                'fuel_sales' => $dayFuelSales,
+                'mobil_oil_sales' => $dayMobilOilSales,
                 'sales' => $daySales,
                 'expenses' => $dayExpenses,
                 'owner_fuel' => $dayOwnerFuel,
@@ -211,6 +232,10 @@ class ReportController extends Controller
 
         return array_merge($range, compact(
             'sales',
+            'fuelSales',
+            'mobilOilSales',
+            'mobilOilSalesQty',
+            'mobilOilSalesCount',
             'salesLiters',
             'salesCount',
             'expenses',
@@ -220,6 +245,8 @@ class ReportController extends Controller
             'ownerFuelCount',
             'refillCogs',
             'refillLiters',
+            'mobilOilCogs',
+            'mobilOilPurchaseQty',
             'totalCosts',
             'grossProfit',
             'netProfit',
@@ -262,11 +289,14 @@ class ReportController extends Controller
             fputcsv($f, []);
             fputcsv($f, ['Summary']);
             fputcsv($f, ['Total Sales (PKR)', number_format($data['sales'], 2)]);
+            fputcsv($f, ['Fuel Sales (PKR)', number_format($data['fuelSales'], 2)]);
+            fputcsv($f, ['Mobil Oil Sales (PKR)', number_format($data['mobilOilSales'], 2)]);
             fputcsv($f, ['Sales Liters', number_format($data['salesLiters'], 2)]);
             fputcsv($f, ['Sales Transactions', $data['salesCount']]);
             fputcsv($f, ['Total Expenses (PKR)', number_format($data['expenses'], 2)]);
             fputcsv($f, ['Owner Fuel Usage (PKR)', number_format($data['ownerFuel'], 2)]);
             fputcsv($f, ['Tank Refill COGS (PKR)', number_format($data['refillCogs'], 2)]);
+            fputcsv($f, ['Mobil Oil Purchase COGS (PKR)', number_format($data['mobilOilCogs'], 2)]);
             fputcsv($f, ['Gross Profit (PKR)', number_format($data['grossProfit'], 2)]);
             fputcsv($f, ['Total Costs incl. COGS (PKR)', number_format($data['totalCosts'], 2)]);
             fputcsv($f, ['Net Profit (PKR)', number_format($data['netProfit'], 2)]);
@@ -281,12 +311,14 @@ class ReportController extends Controller
 
             fputcsv($f, []);
             fputcsv($f, ['Daily Breakdown']);
-            fputcsv($f, ['Date', 'Sales', 'Expenses', 'Owner Fuel', 'Total Costs', 'Net Profit']);
+            fputcsv($f, ['Date', 'Total Sales', 'Fuel Sales', 'Mobil Oil Sales', 'Expenses', 'Owner Fuel', 'Total Costs', 'Net Profit']);
 
             foreach ($data['dailyBreakdown'] as $day) {
                 fputcsv($f, [
                     $day['label'],
                     number_format($day['sales'], 2),
+                    number_format($day['fuel_sales'], 2),
+                    number_format($day['mobil_oil_sales'], 2),
                     number_format($day['expenses'], 2),
                     number_format($day['owner_fuel'], 2),
                     number_format($day['costs'], 2),
@@ -335,13 +367,36 @@ class ReportController extends Controller
             'avgFillPercent' => $rows->avg('fill_percent') ?? 0,
             'tankCount' => $rows->count(),
             'lowStockCount' => $rows->where('is_low', true)->count(),
+            'mobilOilProducts' => $this->getMobilOilStockRows(),
             'generatedAt' => now()->format('d M Y, h:i A'),
         ];
     }
 
+    private function getMobilOilStockRows()
+    {
+        return MobilOilProduct::orderBy('name')->get()->map(function ($product) {
+            $stock = (float) $product->current_stock_qty;
+            $minimum = (float) $product->minimum_level;
+
+            return [
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'unit' => $product->unit,
+                'current_stock' => $stock,
+                'minimum_level' => $minimum,
+                'is_low' => $stock <= $minimum,
+                'status' => $product->status ? 'Active' : 'Inactive',
+            ];
+        });
+    }
+
     public function stock()
     {
-        return view('reports.stock', $this->getStockData());
+        $data = $this->getStockData();
+        $data['mobilOilLowCount'] = collect($data['mobilOilProducts'])->where('is_low', true)->count();
+        $data['mobilOilProductCount'] = collect($data['mobilOilProducts'])->count();
+
+        return view('reports.stock', $data);
     }
 
     public function stockPdf()
@@ -595,6 +650,106 @@ class ReportController extends Controller
                     number_format($v['difference'], 2),
                     $v['status_label'],
                     $v['dip_date'] ?? 'No dip reading',
+                ]);
+            }
+
+            fclose($f);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MOBIL OIL SALES REPORT
+    |--------------------------------------------------------------------------
+    */
+    private function getMobilOilSalesData(Request $request): array
+    {
+        $range = $this->getReportRange($request);
+        $from = $range['from'] . ' 00:00:00';
+        $to = $range['to'] . ' 23:59:59';
+
+        $sales = MobilOilSale::with(['product', 'employee'])
+            ->whereBetween('sold_datetime', [$from, $to])
+            ->latest('sold_datetime')
+            ->get();
+
+        $totalAmount = (float) $sales->sum('total_amount');
+        $totalQty = (float) $sales->sum('quantity');
+
+        $dailyTotals = $sales
+            ->groupBy(fn ($sale) => Carbon::parse($sale->sold_datetime)->format('Y-m-d'))
+            ->map(function ($group, $date) {
+                return [
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('d M Y'),
+                    'total_amount' => $group->sum('total_amount'),
+                    'total_qty' => $group->sum('quantity'),
+                    'record_count' => $group->count(),
+                ];
+            })
+            ->values();
+
+        $byProduct = $sales
+            ->groupBy('mobil_oil_product_id')
+            ->map(function ($group) {
+                $product = $group->first()->product;
+
+                return [
+                    'name' => $product->name ?? 'Unknown',
+                    'unit' => $product->unit ?? '',
+                    'total_amount' => $group->sum('total_amount'),
+                    'total_qty' => $group->sum('quantity'),
+                    'record_count' => $group->count(),
+                ];
+            })
+            ->sortByDesc('total_amount')
+            ->values();
+
+        return array_merge($range, compact('sales', 'totalAmount', 'totalQty', 'dailyTotals', 'byProduct'));
+    }
+
+    public function mobilOilSales(Request $request)
+    {
+        return view('reports.mobil_oil_sales', $this->getMobilOilSalesData($request));
+    }
+
+    public function mobilOilSalesPdf(Request $request)
+    {
+        $data = $this->getMobilOilSalesData($request);
+        $pdf = PDF::loadView('reports.pdf.mobil_oil_sales', $data);
+
+        return $pdf->download('mobil-oil-sales-report.pdf');
+    }
+
+    public function mobilOilSalesCsv(Request $request)
+    {
+        $data = $this->getMobilOilSalesData($request);
+        $filename = 'mobil-oil-sales-' . now()->format('Y-m-d') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($data) {
+            $f = fopen('php://output', 'w');
+            fwrite($f, "\xEF\xBB\xBF");
+            fputcsv($f, ['Mobil Oil Sales Report']);
+            fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
+            fputcsv($f, ['Total Sales (PKR)', number_format($data['totalAmount'], 2)]);
+            fputcsv($f, ['Total Quantity', number_format($data['totalQty'], 2)]);
+            fputcsv($f, []);
+            fputcsv($f, ['Product', 'Quantity', 'Amount (PKR)', 'Payment', 'Employee', 'Sold At']);
+
+            foreach ($data['sales'] as $s) {
+                fputcsv($f, [
+                    $s->product->name ?? '',
+                    number_format($s->quantity, 2) . ' ' . ($s->product->unit ?? ''),
+                    number_format($s->total_amount, 2),
+                    ucfirst($s->payment_method),
+                    $s->employee->name ?? '',
+                    $s->sold_datetime?->format('d-m-Y H:i') ?? '',
                 ]);
             }
 

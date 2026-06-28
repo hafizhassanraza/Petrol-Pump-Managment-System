@@ -15,11 +15,9 @@ class TankDipReadingController extends Controller
     public function index(Request $request)
     {
         $range = ReportRange::fromRequest($request);
-        $from = $range['from'] . ' 00:00:00';
-        $to = $range['to'] . ' 23:59:59';
 
         $readings = TankDipReading::with('tank.product')
-            ->whereBetween('reading_datetime', [$from, $to])
+            ->whereBetween('reading_datetime', [$range['fromAt'], $range['toAt']])
             ->latest('reading_datetime')
             ->paginate(15)
             ->withQueryString();
