@@ -16,6 +16,8 @@ class TankRefill extends Model
 
         'quantity_liters',
 
+        'stock_before_liters',
+
         'purchase_rate',
 
         'total_amount',
@@ -27,6 +29,16 @@ class TankRefill extends Model
         'created_by',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'quantity_liters' => 'decimal:2',
+            'stock_before_liters' => 'decimal:2',
+            'purchase_rate' => 'decimal:2',
+            'total_amount' => 'decimal:2',
+            'received_datetime' => 'datetime',
+        ];
+    }
 
     /*
     |--------------------------------------------------------------------------

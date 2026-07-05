@@ -29,6 +29,7 @@ class TankRefillTest extends TestCase
         $this->assertDatabaseHas('tank_refills', [
             'tank_id' => $graph['tank']->id,
             'quantity_liters' => 500,
+            'stock_before_liters' => 1000,
         ]);
     }
 

@@ -62,14 +62,16 @@ class TankRefillsController extends Controller
         }
 
         $totalAmount = round($quantity * (float) $request->purchase_rate, 2);
+        $stockBefore = (float) $tank->current_stock_liters;
 
         try {
-            DB::transaction(function () use ($request, $tank, $quantity, $totalAmount) {
+            DB::transaction(function () use ($request, $tank, $quantity, $totalAmount, $stockBefore) {
                 TankRefill::create([
                     'tank_id' => $tank->id,
                     'product_id' => $request->product_id,
                     'invoice_no' => $request->invoice_no,
                     'quantity_liters' => $quantity,
+                    'stock_before_liters' => $stockBefore,
                     'purchase_rate' => $request->purchase_rate,
                     'total_amount' => $totalAmount,
                     'received_datetime' => now(),

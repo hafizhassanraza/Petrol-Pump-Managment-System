@@ -223,6 +223,7 @@
                                     <input type="number"
                                            step="0.01"
                                            name="closing_reading"
+                                           id="closingReadingInput"
                                            class="form-control @error('closing_reading') is-invalid @enderror"
                                            value="{{ old('closing_reading') }}"
                                            placeholder="Enter closing reading"
@@ -262,6 +263,7 @@
                                     <input type="number"
                                            step="0.01"
                                            name="testing_liters"
+                                           id="testingLitersInput"
                                            class="form-control @error('testing_liters') is-invalid @enderror"
                                            value="{{ old('testing_liters', 0) }}"
                                            placeholder="0.00">
@@ -278,6 +280,36 @@
 
                                 @enderror
 
+                            </div>
+
+
+
+                            {{-- Expected amount summary --}}
+                            <div class="col-12 mb-3">
+                                <div id="expectedAmountBox" class="p-3 rounded-3 border bg-light">
+                                    <h6 class="fw-semibold mb-3"><i class="bi bi-calculator"></i> Expected Amount</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Gross Liters</small>
+                                            <strong id="grossLitersDisplay">—</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Testing Liters</small>
+                                            <strong id="testingLitersDisplay">0.00</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Net Liters Sold</small>
+                                            <strong id="netLitersDisplay" class="text-primary">—</strong>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted d-block">Expected Amount (PKR)</small>
+                                            <strong id="expectedAmountDisplay" class="fs-5 text-success">—</strong>
+                                        </div>
+                                    </div>
+                                    <small id="expectedAmountHint" class="text-muted d-block mt-2">
+                                        Net liters × selling price (PKR {{ isset($pricePerLiter) && $pricePerLiter ? number_format($pricePerLiter, 2) : '0.00' }} / L)
+                                    </small>
+                                </div>
                             </div>
 
 
@@ -392,5 +424,85 @@
 
 
 </div>
+
+<script>
+(function () {
+    const openingReading = {{ (float) $shift->opening_reading }};
+    const pricePerLiter = {{ isset($pricePerLiter) && $pricePerLiter ? (float) $pricePerLiter : 0 }};
+    const closingInput = document.getElementById('closingReadingInput');
+    const testingInput = document.getElementById('testingLitersInput');
+    const grossDisplay = document.getElementById('grossLitersDisplay');
+    const testingDisplay = document.getElementById('testingLitersDisplay');
+    const netDisplay = document.getElementById('netLitersDisplay');
+    const amountDisplay = document.getElementById('expectedAmountDisplay');
+    const amountBox = document.getElementById('expectedAmountBox');
+
+    function formatNumber(value) {
+        return value.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function updateExpectedAmount() {
+        const closing = parseFloat(closingInput.value);
+        const testing = parseFloat(testingInput.value) || 0;
+
+        testingDisplay.textContent = formatNumber(testing);
+
+        if (Number.isNaN(closing)) {
+            grossDisplay.textContent = '—';
+            netDisplay.textContent = '—';
+            amountDisplay.textContent = '—';
+            amountDisplay.className = 'fs-5 text-muted';
+            return;
+        }
+
+        if (closing < openingReading) {
+            grossDisplay.textContent = formatNumber(closing - openingReading);
+            netDisplay.textContent = 'Invalid';
+            amountDisplay.textContent = 'Closing must be ≥ opening';
+            amountDisplay.className = 'fs-6 text-danger';
+            amountBox.classList.add('border-danger');
+            return;
+        }
+
+        amountBox.classList.remove('border-danger');
+
+        const gross = closing - openingReading;
+        const net = gross - testing;
+
+        grossDisplay.textContent = formatNumber(gross);
+
+        if (testing > gross) {
+            netDisplay.textContent = 'Invalid';
+            amountDisplay.textContent = 'Testing exceeds gross';
+            amountDisplay.className = 'fs-6 text-danger';
+            amountBox.classList.add('border-danger');
+            return;
+        }
+
+        if (net <= 0) {
+            netDisplay.textContent = formatNumber(Math.max(net, 0));
+            amountDisplay.textContent = net === 0 ? '0.00' : 'Net liters must be > 0';
+            amountDisplay.className = net === 0 ? 'fs-5 text-muted' : 'fs-6 text-danger';
+            return;
+        }
+
+        netDisplay.textContent = formatNumber(net);
+
+        if (pricePerLiter <= 0) {
+            amountDisplay.textContent = 'No price set';
+            amountDisplay.className = 'fs-6 text-danger';
+            return;
+        }
+
+        const expected = net * pricePerLiter;
+        amountDisplay.textContent = formatNumber(expected);
+        amountDisplay.className = 'fs-5 text-success';
+    }
+
+    closingInput.addEventListener('input', updateExpectedAmount);
+    testingInput.addEventListener('input', updateExpectedAmount);
+    updateExpectedAmount();
+})();
+</script>
 
 @endsection

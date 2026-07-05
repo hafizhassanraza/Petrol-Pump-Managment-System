@@ -18,6 +18,15 @@ class DashboardAndReportsTest extends TestCase
         $this->actingAs($graph['user'])
             ->get(route('dashboard'))
             ->assertOk();
+
+        $this->actingAs($graph['user'])
+            ->get(route('dashboard', ['filter' => 'last-week']))
+            ->assertOk()
+            ->assertSee('Last 7 days');
+
+        $this->actingAs($graph['user'])
+            ->get(route('dashboard', ['filter' => 'custom', 'from' => '2026-01-01', 'to' => '2026-01-31']))
+            ->assertOk();
     }
 
     public function test_authenticated_owner_can_view_reports(): void

@@ -59,11 +59,13 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store']);
-    Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index', 'create', 'store']);
+    Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tank-dip-readings', TankDipReadingController::class)->only(['index', 'create', 'store']);
     Route::resource('tank-refills', TankRefillsController::class)->only(['index', 'create', 'store']);
 
     Route::resource('employee-shifts', EmployeeShiftController::class)->only(['index', 'create', 'store']);
+    Route::get('employee-shifts/{id}/edit', [EmployeeShiftController::class, 'edit'])->name('employee-shifts.edit');
+    Route::put('employee-shifts/{id}', [EmployeeShiftController::class, 'update'])->name('employee-shifts.update');
     Route::get('employee-shifts/{id}/close', [EmployeeShiftController::class, 'closeForm'])->name('employee-shifts.close-form');
     Route::post('employee-shifts/{id}/close', [EmployeeShiftController::class, 'close'])->name('employee-shifts.close');
     Route::post('employee-shifts/{id}/verify', [EmployeeShiftController::class, 'verify'])->name('employee-shifts.verify');

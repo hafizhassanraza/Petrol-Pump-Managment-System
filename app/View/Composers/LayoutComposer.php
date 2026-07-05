@@ -54,6 +54,7 @@ class LayoutComposer
             },
             str_starts_with($name, 'employee-shifts.') => match ($name) {
                 'employee-shifts.create' => 'Assign Shift',
+                'employee-shifts.edit' => 'Edit Shift',
                 'employee-shifts.close-form' => 'Close Shift',
                 default => 'Employee Shifts',
             },
@@ -67,6 +68,7 @@ class LayoutComposer
             },
             str_starts_with($name, 'owner-fuel-usages.') => match ($name) {
                 'owner-fuel-usages.create' => 'Owner Fuel Usage',
+                'owner-fuel-usages.edit' => 'Edit Owner Fuel Usage',
                 default => 'Owner Fuel Usage',
             },
             str_starts_with($name, 'expenses.') => match ($name) {

@@ -114,28 +114,37 @@
 
 <div class="dash-hero">
     <p class="mb-0">Real-time analytics — sales, expenses, inventory, and operations.</p>
-    <div class="hero-date"><i class="bi bi-calendar3"></i> {{ now()->format('l, d F Y') }}</div>
+    <div class="hero-date"><i class="bi bi-calendar3"></i> {{ $periodLabel ?? 'Today' }}</div>
 </div>
+
+@include('partials.period-filter', ['formAction' => route('dashboard')])
 
 {{-- Primary KPIs --}}
 <div class="kpi-grid">
     <div class="kpi-card kpi-profit">
-        <div class="kpi-label">Today Sales <small>(9 AM day)</small></div>
-        <div class="kpi-value">PKR {{ number_format($todaySales, 0) }}</div>
-        <div class="kpi-sub">{{ number_format($todayLiters, 1) }} L &middot; {{ $todayShiftCount }} shifts</div>
+        <div class="kpi-label">Fuel Sales</div>
+        <div class="kpi-value">PKR {{ number_format($periodSales, 0) }}</div>
+        <div class="kpi-sub">{{ number_format($periodLiters, 1) }} L &middot; {{ $periodShiftCount }} shifts</div>
     </div>
+    @if(($periodMobilOilSales ?? 0) > 0)
+    <div class="kpi-card kpi-info">
+        <div class="kpi-label">Mobil Oil Sales</div>
+        <div class="kpi-value">PKR {{ number_format($periodMobilOilSales, 0) }}</div>
+    </div>
+    @endif
     <div class="kpi-card kpi-danger">
-        <div class="kpi-label">Today Expenses</div>
-        <div class="kpi-value">PKR {{ number_format($todayExpense, 0) }}</div>
+        <div class="kpi-label">Expenses</div>
+        <div class="kpi-value">PKR {{ number_format($periodExpense, 0) }}</div>
     </div>
     <div class="kpi-card kpi-warning">
-        <div class="kpi-label">Owner Fuel (Today)</div>
-        <div class="kpi-value">PKR {{ number_format($todayOwnerFuel, 0) }}</div>
+        <div class="kpi-label">Owner Fuel</div>
+        <div class="kpi-value">PKR {{ number_format($periodOwnerFuel, 0) }}</div>
     </div>
-    <div class="kpi-card {{ $todayNet >= 0 ? 'kpi-profit' : 'kpi-loss' }}">
-        <div class="kpi-label">Today Net</div>
-        <div class="kpi-value">PKR {{ number_format($todayNet, 0) }}</div>
-        <div class="kpi-sub">{{ $todaySales > 0 ? number_format(($todayNet / $todaySales) * 100, 1) : 0 }}% margin</div>
+    <div class="kpi-card {{ $periodNet >= 0 ? 'kpi-profit' : 'kpi-loss' }}">
+        <div class="kpi-label">Net Profit</div>
+        <div class="kpi-value">PKR {{ number_format($periodNet, 0) }}</div>
+        @php $totalSales = $periodSales + ($periodMobilOilSales ?? 0); @endphp
+        <div class="kpi-sub">{{ $totalSales > 0 ? number_format(($periodNet / $totalSales) * 100, 1) : 0 }}% margin</div>
     </div>
     <div class="kpi-card kpi-primary">
         <div class="kpi-label">MTD Sales</div>
@@ -165,8 +174,9 @@
         <div class="kpi-value">{{ $activeShifts }}</div>
     </div>
     <div class="kpi-card kpi-primary">
-        <div class="kpi-label">MTD Refills</div>
-        <div class="kpi-value">PKR {{ number_format($mtdRefills, 0) }}</div>
+        <div class="kpi-label">Tank Refills</div>
+        <div class="kpi-value">PKR {{ number_format($periodRefills, 0) }}</div>
+        <div class="kpi-sub">In selected period</div>
     </div>
 </div>
 
@@ -191,16 +201,16 @@
 <div class="row">
     <div class="col-lg-8 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-graph-up-arrow"></i> Sales, Expenses &amp; Net Profit (7 Days)</h5>
+            <h5><i class="bi bi-graph-up-arrow"></i> Sales, Expenses &amp; Net Profit ({{ $chartDayCount }} {{ Str::plural('day', $chartDayCount) }})</h5>
             <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
         </div>
     </div>
     <div class="col-lg-4 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-credit-card"></i> Today Payments</h5>
+            <h5><i class="bi bi-credit-card"></i> Payments (Period)</h5>
             <div class="chart-wrap sm"><canvas id="paymentChart"></canvas></div>
-            <div class="stat-row"><span>Cash Received</span><strong>PKR {{ number_format($todayCash, 2) }}</strong></div>
-            <div class="stat-row"><span>Online Received</span><strong>PKR {{ number_format($todayOnline, 2) }}</strong></div>
+            <div class="stat-row"><span>Cash Received</span><strong>PKR {{ number_format($periodCash, 2) }}</strong></div>
+            <div class="stat-row"><span>Online Received</span><strong>PKR {{ number_format($periodOnline, 2) }}</strong></div>
         </div>
     </div>
 </div>
@@ -209,19 +219,19 @@
 <div class="row">
     <div class="col-lg-4 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-fuel-pump"></i> Liters Sold (7 Days)</h5>
+            <h5><i class="bi bi-fuel-pump"></i> Liters Sold ({{ $chartDayCount }} {{ Str::plural('day', $chartDayCount) }})</h5>
             <div class="chart-wrap sm"><canvas id="litersChart"></canvas></div>
         </div>
     </div>
     <div class="col-lg-4 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-pie-chart"></i> Sales by Product (7 Days)</h5>
+            <h5><i class="bi bi-pie-chart"></i> Sales by Product</h5>
             <div class="chart-wrap sm"><canvas id="productChart"></canvas></div>
         </div>
     </div>
     <div class="col-lg-4 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-tags"></i> Expenses by Type (30 Days)</h5>
+            <h5><i class="bi bi-tags"></i> Expenses by Type</h5>
             <div class="chart-wrap sm"><canvas id="expenseChart"></canvas></div>
         </div>
     </div>
@@ -237,18 +247,25 @@
     </div>
     <div class="col-lg-5 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-clipboard-data"></i> Month Summary</h5>
-            <div class="stat-row"><span>Total Sales</span><strong class="text-profit">PKR {{ number_format($mtdSales, 2) }}</strong></div>
-            <div class="stat-row"><span>Total Expenses</span><strong class="text-loss">PKR {{ number_format($mtdExpense, 2) }}</strong></div>
-            <div class="stat-row"><span>Owner Fuel Usage</span><strong class="text-loss">PKR {{ number_format($mtdOwnerFuel, 2) }}</strong></div>
-            <div class="stat-row"><span>Tank Refill Purchases</span><strong>PKR {{ number_format($mtdRefills, 2) }}</strong></div>
-            <div class="stat-row"><span>Liters Sold (MTD)</span><strong>{{ number_format($mtdLiters, 2) }} L</strong></div>
+            <h5><i class="bi bi-clipboard-data"></i> Period Summary</h5>
+            <div class="stat-row"><span>Fuel Sales</span><strong class="text-profit">PKR {{ number_format($periodSales, 2) }}</strong></div>
+            @if(($periodMobilOilSales ?? 0) > 0)
+            <div class="stat-row"><span>Mobil Oil Sales</span><strong class="text-profit">PKR {{ number_format($periodMobilOilSales, 2) }}</strong></div>
+            @endif
+            <div class="stat-row"><span>Total Expenses</span><strong class="text-loss">PKR {{ number_format($periodExpense, 2) }}</strong></div>
+            <div class="stat-row"><span>Owner Fuel Usage</span><strong class="text-loss">PKR {{ number_format($periodOwnerFuel, 2) }}</strong></div>
+            <div class="stat-row"><span>Tank Refill Purchases</span><strong>PKR {{ number_format($periodRefills, 2) }}</strong></div>
+            <div class="stat-row"><span>Liters Sold</span><strong>{{ number_format($periodLiters, 2) }} L</strong></div>
             <div class="stat-row" style="background:#f0fdf4;margin-top:8px;border-radius:8px;padding:12px;">
-                <span><strong>Net Profit (MTD)</strong></span>
-                <strong class="{{ $mtdNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($mtdNet, 2) }}</strong>
+                <span><strong>Net Profit</strong></span>
+                <strong class="{{ $periodNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($periodNet, 2) }}</strong>
             </div>
             <hr class="my-3">
-            <h5><i class="bi bi-trophy"></i> Top Employees (7 Days)</h5>
+            <h5><i class="bi bi-calendar-month"></i> Month to Date</h5>
+            <div class="stat-row"><span>MTD Net</span><strong class="{{ $mtdNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($mtdNet, 2) }}</strong></div>
+            <div class="stat-row"><span>MTD Refills</span><strong>PKR {{ number_format($mtdRefills, 2) }}</strong></div>
+            <hr class="my-3">
+            <h5><i class="bi bi-trophy"></i> Top Employees</h5>
             @forelse($topEmployees as $emp)
                 <div class="stat-row">
                     <span>{{ $emp['name'] }} <small class="text-muted">({{ $emp['shifts'] }} shifts)</small></span>
@@ -381,7 +398,7 @@ new Chart(document.getElementById('paymentChart'), {
     data: {
         labels: ['Cash', 'Online'],
         datasets: [{
-            data: [{{ $todayCash }}, {{ $todayOnline }}],
+            data: [{{ $periodCash }}, {{ $periodOnline }}],
             backgroundColor: ['#16a34a', '#2193b0'],
             borderWidth: 0
         }]
@@ -416,7 +433,7 @@ if (productLabels.length) {
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
     });
 } else {
-    document.getElementById('productChart').parentElement.innerHTML += '<p class="text-muted small text-center">No sales data for last 7 days.</p>';
+    document.getElementById('productChart').parentElement.innerHTML += '<p class="text-muted small text-center">No sales data for this period.</p>';
 }
 
 const expenseLabels = @json($expenseByType->pluck('expense_type'));
@@ -432,7 +449,7 @@ if (expenseLabels.length) {
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
     });
 } else {
-    document.getElementById('expenseChart').parentElement.innerHTML += '<p class="text-muted small text-center">No expenses in last 30 days.</p>';
+    document.getElementById('expenseChart').parentElement.innerHTML += '<p class="text-muted small text-center">No expenses in this period.</p>';
 }
 
 const tankLabels = @json($tankStock->pluck('label'));

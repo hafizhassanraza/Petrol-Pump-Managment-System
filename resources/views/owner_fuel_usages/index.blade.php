@@ -18,6 +18,7 @@
                     <th>Total</th>
                     <th>Vehicle</th>
                     <th>Date</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -29,10 +30,13 @@
                         <td>{{ number_format($u->price_per_liter, 2) }}</td>
                         <td>{{ number_format($u->total_amount, 2) }}</td>
                         <td>{{ $u->vehicle_no ?? '—' }}</td>
-                        <td>{{ $u->usage_datetime ? \Carbon\Carbon::parse($u->usage_datetime)->format('d M Y H:i') : '—' }}</td>
+                        <td>{{ $u->usage_datetime?->format('d M Y H:i') ?? '—' }}</td>
+                        <td>
+                            <a href="{{ route('owner-fuel-usages.edit', $u) }}" class="btn btn-primary btn-sm">Edit</a>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="text-center text-muted py-4">No records in this period.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">No records in this period.</td></tr>
                 @endforelse
             </tbody>
         </table>

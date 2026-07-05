@@ -14,6 +14,7 @@
                     <th>Tank</th>
                     <th>Product</th>
                     <th>Invoice</th>
+                    <th>Stock Before (L)</th>
                     <th>Qty (L)</th>
                     <th>Rate</th>
                     <th>Total</th>
@@ -26,13 +27,14 @@
                         <td>{{ $r->tank->tank_number ?? '—' }}</td>
                         <td>{{ $r->product->name ?? '—' }}</td>
                         <td>{{ $r->invoice_no ?? '—' }}</td>
+                        <td>{{ $r->stock_before_liters !== null ? number_format($r->stock_before_liters, 2) : '—' }}</td>
                         <td>{{ number_format($r->quantity_liters, 2) }}</td>
                         <td>{{ number_format($r->purchase_rate, 2) }}</td>
                         <td><strong>{{ number_format($r->total_amount, 2) }}</strong></td>
                         <td>{{ $r->received_datetime ? \Carbon\Carbon::parse($r->received_datetime)->format('d M Y H:i') : '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="text-center text-muted py-4">No refills in this period.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">No refills in this period.</td></tr>
                 @endforelse
             </tbody>
         </table>
