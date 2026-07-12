@@ -58,7 +58,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('sales', MobilOilSaleController::class)->only(['index', 'create', 'store']);
     });
 
-    Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store']);
+    Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tank-dip-readings', TankDipReadingController::class)->only(['index', 'create', 'store']);
     Route::resource('tank-refills', TankRefillsController::class)->only(['index', 'create', 'store']);

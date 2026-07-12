@@ -19,15 +19,9 @@
         <select name="expense_type"
                 class="form-control">
 
-            <option>Salary</option>
-
-            <option>Electricity Bill</option>
-
-            <option>Maintenance</option>
-
-            <option>Repair</option>
-
-            <option>Miscellaneous</option>
+            @foreach($expenseTypes as $type)
+                <option @selected(old('expense_type') === $type)>{{ $type }}</option>
+            @endforeach
 
         </select>
 

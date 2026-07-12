@@ -15,6 +15,7 @@
                     <th>Amount (PKR)</th>
                     <th>Date</th>
                     <th>Notes</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -24,9 +25,12 @@
                         <td>{{ number_format($e->amount, 2) }}</td>
                         <td>{{ \Carbon\Carbon::parse($e->expense_date)->format('d M Y') }}</td>
                         <td>{{ $e->notes ?: '—' }}</td>
+                        <td>
+                            <a href="{{ route('expenses.edit', $e) }}" class="btn btn-primary btn-sm">Edit</a>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="text-center text-muted py-4">No expenses in this period.</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted py-4">No expenses in this period.</td></tr>
                 @endforelse
             </tbody>
         </table>
