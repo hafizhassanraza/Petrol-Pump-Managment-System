@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Tank;
 use App\Models\TankRefill;
 use App\Services\StockService;
+use App\Support\FuelProducts;
 use App\Support\ReportRange;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class TankRefillsController extends Controller
 {
@@ -32,7 +33,7 @@ class TankRefillsController extends Controller
     {
         return view('tank_refills.create', [
             'tanks' => Tank::with('product')->where('status', 1)->get(),
-            'products' => Product::where('status', 1)->get(),
+            'products' => FuelProducts::all(),
         ]);
     }
 
@@ -40,7 +41,7 @@ class TankRefillsController extends Controller
     {
         $request->validate([
             'tank_id' => 'required|exists:tanks,id',
-            'product_id' => 'required|exists:products,id',
+            'product_id' => ['required', Rule::in(FuelProducts::all()->pluck('id')->all())],
             'quantity_liters' => 'required|numeric|min:0.1',
             'purchase_rate' => 'required|numeric|min:0.01',
             'invoice_no' => 'nullable|string|max:100',

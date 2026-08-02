@@ -2,24 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\ProductPrice;
 use App\Services\ProductPriceService;
+use App\Support\FuelProducts;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ProductPriceController extends Controller
 {
     public function index()
     {
+        $products = FuelProducts::all()->load('latestPrice');
+
         $prices = ProductPrice::with(['product', 'creator'])
+            ->whereIn('product_id', $products->pluck('id'))
             ->latest('effective_from')
             ->paginate(20);
-
-        $products = Product::where('status', 1)
-            ->with('latestPrice')
-            ->orderBy('name')
-            ->get();
 
         return view('product_prices.index', compact('prices', 'products'));
     }
@@ -27,14 +26,16 @@ class ProductPriceController extends Controller
     public function create()
     {
         return view('product_prices.create', [
-            'products' => Product::where('status', 1)->orderBy('name')->get(),
+            'products' => FuelProducts::all()->load('latestPrice'),
         ]);
     }
 
     public function store(Request $request)
     {
+        $fuelIds = FuelProducts::all()->pluck('id')->all();
+
         $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => ['required', Rule::in($fuelIds)],
             'price' => 'required|numeric|min:0.01',
             'effective_from' => 'required|date',
         ]);

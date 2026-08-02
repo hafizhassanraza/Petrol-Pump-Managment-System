@@ -22,7 +22,7 @@
                 @forelse($expenses as $e)
                     <tr>
                         <td><strong>{{ $e->expense_type }}</strong></td>
-                        <td>{{ number_format($e->amount, 2) }}</td>
+                        <td>{{ money($e->amount) }}</td>
                         <td>{{ \Carbon\Carbon::parse($e->expense_date)->format('d M Y') }}</td>
                         <td>{{ $e->notes ?: '—' }}</td>
                         <td>

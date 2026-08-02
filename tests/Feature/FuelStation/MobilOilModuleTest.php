@@ -198,7 +198,7 @@ class MobilOilModuleTest extends TestCase
         $this->actingAs($graph['user'])
             ->get(route('mobil-oil.sales.index', ['filter' => 'today']))
             ->assertOk()
-            ->assertSee('1,700.00');
+            ->assertSee('1,700');
     }
 
     public function test_sale_create_page_shows_total_amount_helper(): void
@@ -245,7 +245,9 @@ class MobilOilModuleTest extends TestCase
             ->get(route('reports.profit-loss', ['filter' => 'today']))
             ->assertOk()
             ->assertSee('Mobil Oil Sales')
-            ->assertSee('Mobil Oil Purchase COGS');
+            ->assertSee('Mobil Oil Sales & Profit')
+            ->assertSee($graph['product']->name)
+            ->assertSee('500'); // profit: (850-600)*2
     }
 
     public function test_mobil_oil_sales_report_lists_transactions(): void

@@ -18,6 +18,8 @@
                     <th>Reading (Open → Close)</th>
                     <th>Liters</th>
                     <th>Amount</th>
+                    <th>Cash</th>
+                    <th>Online</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -39,7 +41,9 @@
                             @endif
                         </td>
                         <td>{{ $shift->total_liters ? number_format($shift->total_liters, 2) : '—' }}</td>
-                        <td>{{ $shift->total_amount ? number_format($shift->total_amount, 2) : '—' }}</td>
+                        <td>{{ $shift->total_amount ? money($shift->total_amount) : '—' }}</td>
+                        <td>{{ $shift->status === 'active' ? '—' : money($shift->cash_received) }}</td>
+                        <td>{{ $shift->status === 'active' ? '—' : money($shift->online_received) }}</td>
                         <td>
                             @if($shift->status === 'active')<span class="badge bg-primary">Active</span>
                             @elseif($shift->status === 'submitted')<span class="badge bg-warning text-dark">Submitted</span>
@@ -60,7 +64,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="text-center text-muted py-4">No shifts in this period.</td></tr>
+                    <tr><td colspan="11" class="text-center text-muted py-4">No shifts in this period.</td></tr>
                 @endforelse
             </tbody>
         </table>

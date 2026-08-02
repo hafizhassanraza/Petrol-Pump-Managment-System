@@ -28,7 +28,7 @@
                         <td>{{ $u->product->name ?? '—' }}</td>
                         <td>{{ number_format($u->liters, 2) }}</td>
                         <td>{{ number_format($u->price_per_liter, 2) }}</td>
-                        <td>{{ number_format($u->total_amount, 2) }}</td>
+                        <td>{{ money($u->total_amount) }}</td>
                         <td>{{ $u->vehicle_no ?? '—' }}</td>
                         <td>{{ $u->usage_datetime?->format('d M Y H:i') ?? '—' }}</td>
                         <td>

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\FuelStation;
 
-use App\Models\Product;
 use App\Models\Tank;
+use App\Support\FuelProducts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreatesFuelStationFixtures;
 use Tests\TestCase;
@@ -18,7 +18,7 @@ class NozzleTest extends TestCase
         $user = $this->createOwner();
         $graph = $this->createFuelStationGraph();
 
-        $diesel = Product::create(['name' => 'Diesel', 'unit' => 'liter', 'status' => true]);
+        $diesel = FuelProducts::diesel();
         $dieselTank = Tank::create([
             'product_id' => $diesel->id,
             'tank_number' => 'T-DSL',

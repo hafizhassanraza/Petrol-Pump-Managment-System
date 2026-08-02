@@ -9,7 +9,7 @@
         <div class="info-card amount">
             <div class="info-card-icon"><i class="bi bi-cart-check"></i></div>
             <div class="info-card-label">Total Sales</div>
-            <div class="info-card-value">PKR {{ number_format($totalAmount, 2) }}</div>
+            <div class="info-card-value">PKR {{ money($totalAmount) }}</div>
         </div>
     </div>
     <div class="col-md-6 col-lg-3 mb-3">
@@ -80,7 +80,7 @@
                 <tr>
                     <td>{{ $row['name'] }}</td>
                     <td style="text-align: right;">{{ number_format($row['total_qty'], 2) }} {{ $row['unit'] }}</td>
-                    <td style="text-align: right;">{{ number_format($row['total_amount'], 2) }}</td>
+                    <td style="text-align: right;">{{ money($row['total_amount']) }}</td>
                     <td style="text-align: right;">{{ $row['record_count'] }}</td>
                 </tr>
             @endforeach
@@ -108,8 +108,8 @@
                 <tr>
                     <td>{{ $s->product->name ?? '—' }}</td>
                     <td>{{ number_format($s->quantity, 2) }} {{ $s->product->unit ?? '' }}</td>
-                    <td>{{ number_format($s->unit_price, 2) }}</td>
-                    <td><strong>{{ number_format($s->total_amount, 2) }}</strong></td>
+                    <td>{{ rate($s->unit_price) }}</td>
+                    <td><strong>{{ money($s->total_amount) }}</strong></td>
                     <td>{{ ucfirst($s->payment_method) }}</td>
                     <td>{{ $s->employee->name ?? '—' }}</td>
                     <td>{{ $s->sold_datetime?->format('d M Y H:i') }}</td>

@@ -9,12 +9,19 @@ use App\Models\Expense;
 use App\Models\MobilOilProduct;
 use App\Models\MobilOilPurchase;
 use App\Models\MobilOilSale;
+use App\Models\ProductPrice;
 use App\Models\Tank;
 use App\Models\OwnerFuelUsage;
 use App\Models\TankDipReading;
 use App\Models\TankRefill;
+use App\Services\BusinessDayService;
+use App\Support\DailyCashLedger;
+use App\Support\DailyFuelMetrics;
+use App\Support\FuelProducts;
+use App\Support\MobilOilSalesMetrics;
 use App\Support\ReportRange;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use PDF;
 
 class ReportController extends Controller
@@ -43,7 +50,7 @@ class ReportController extends Controller
     {
         $range = $this->getDailySalesRange($request);
 
-        $query = EmployeeShift::with('employee', 'nozzle');
+        $query = EmployeeShift::with('employee', 'nozzle.product');
 
         if ($range['from'] && $range['to']) {
             $query->whereBetween('assigned_date', [$range['from'], $range['to']]);
@@ -52,21 +59,159 @@ class ReportController extends Controller
         $shifts = $query->latest()->get();
         $totalAmount = $shifts->sum('total_amount');
         $totalLiters = $shifts->sum('total_liters');
+        $totalCash = $shifts->sum('cash_received');
+        $totalOnline = $shifts->sum('online_received');
 
-        $dailyTotals = $shifts
-            ->groupBy(fn ($shift) => Carbon::parse($shift->assigned_date)->format('Y-m-d'))
-            ->map(function ($group, $date) {
-                return [
-                    'date' => $date,
-                    'label' => \Carbon\Carbon::parse($date)->format('d M Y'),
-                    'total_amount' => $group->sum('total_amount'),
-                    'total_liters' => $group->sum('total_liters'),
-                    'record_count' => $group->count(),
-                ];
-            })
+        $productBreakdown = DailyFuelMetrics::byProduct($range['from'], $range['to']);
+        $mobilOilBreakdown = MobilOilSalesMetrics::byProduct($range['fromAt'], $range['toAt']);
+
+        $fuelByDay = DailyFuelMetrics::dailyByProduct($range['from'], $range['to']);
+        $mobilOilByDay = MobilOilSalesMetrics::dailyTotals($range['fromAt'], $range['toAt']);
+        $infoByDay = $this->dailySalesInfoByDay($range['from'], $range['to'], $range['fromAt'], $range['toAt']);
+
+        $dates = $fuelByDay->keys()
+            ->merge($mobilOilByDay->keys())
+            ->merge($infoByDay->keys())
+            ->unique()
+            ->sort()
             ->values();
 
-        return array_merge($range, compact('shifts', 'totalAmount', 'totalLiters', 'dailyTotals'));
+        $closingByDay = DailyFuelMetrics::dailyClosingStock($range['from'], $range['to'], $dates);
+
+        $totalAmount += (float) $mobilOilBreakdown->sum('sales_amount');
+        $totalCash += (float) $mobilOilBreakdown->sum('cash');
+        $totalOnline += (float) $mobilOilBreakdown->sum('online');
+
+        $empty = DailyFuelMetrics::emptyProductDay();
+
+        $dailyTotals = $dates->map(function (string $date) use ($fuelByDay, $mobilOilByDay, $closingByDay, $infoByDay, $empty) {
+            $fuel = $fuelByDay->get($date, ['petrol' => $empty, 'diesel' => $empty]);
+            $petrol = $fuel['petrol'] ?? $empty;
+            $diesel = $fuel['diesel'] ?? $empty;
+            $mobilOil = $mobilOilByDay->get($date, $empty);
+            $stockDay = $closingByDay->get($date, [
+                'petrol' => ['stock_opening' => 0.0, 'stock_closing' => 0.0],
+                'diesel' => ['stock_opening' => 0.0, 'stock_closing' => 0.0],
+            ]);
+
+            $dayAmount = (float) $petrol['sales_amount'] + (float) $diesel['sales_amount'] + (float) $mobilOil['sales_amount'];
+            $dayCash = (float) $petrol['cash'] + (float) $diesel['cash'] + (float) $mobilOil['cash'];
+            $dayOnline = (float) $petrol['online'] + (float) $diesel['online'] + (float) $mobilOil['online'];
+            $dayProfit = (float) $petrol['total_profit'] + (float) $diesel['total_profit'] + (float) $mobilOil['total_profit'];
+
+            $petrol = array_merge($petrol, [
+                'stock_opening' => (float) ($stockDay['petrol']['stock_opening'] ?? 0),
+                'stock_closing' => (float) ($stockDay['petrol']['stock_closing'] ?? 0),
+                'show_stock' => true,
+            ]);
+            $diesel = array_merge($diesel, [
+                'stock_opening' => (float) ($stockDay['diesel']['stock_opening'] ?? 0),
+                'stock_closing' => (float) ($stockDay['diesel']['stock_closing'] ?? 0),
+                'show_stock' => true,
+            ]);
+
+            return [
+                'date' => $date,
+                'label' => report_date($date),
+                'petrol' => $petrol,
+                'diesel' => $diesel,
+                'mobil_oil' => $mobilOil,
+                'total_amount' => round($dayAmount, 2),
+                'total_cash' => round($dayCash, 2),
+                'total_online' => round($dayOnline, 2),
+                'total_profit' => round($dayProfit, 2),
+                'total_liters' => round((float) $petrol['liters'] + (float) $diesel['liters'], 2),
+                'infos' => $infoByDay->get($date, collect())->values()->all(),
+            ];
+        });
+
+        return array_merge($range, compact(
+            'shifts',
+            'totalAmount',
+            'totalLiters',
+            'totalCash',
+            'totalOnline',
+            'dailyTotals',
+            'productBreakdown',
+            'mobilOilBreakdown'
+        ));
+    }
+
+    /**
+     * Info notices keyed by business date (Petrol/Diesel stock refill / sale price change).
+     *
+     * @return Collection<string, Collection<int, array{type: string, message: string}>>
+     */
+    private function dailySalesInfoByDay(string $from, string $to, ?Carbon $fromAt, ?Carbon $toAt): Collection
+    {
+        if (! $fromAt || ! $toAt) {
+            return collect();
+        }
+
+        $fuelIds = FuelProducts::ids();
+        $productIds = array_values($fuelIds);
+
+        $byDay = collect();
+
+        $push = function (string $date, string $type, string $message) use (&$byDay, $from, $to): void {
+            if ($date < $from || $date > $to) {
+                return;
+            }
+            if (! $byDay->has($date)) {
+                $byDay[$date] = collect();
+            }
+            $byDay[$date]->push([
+                'type' => $type,
+                'message' => $message,
+            ]);
+        };
+
+        $refills = TankRefill::query()
+            ->with('product:id,name')
+            ->whereIn('product_id', $productIds)
+            ->whereBetween('received_datetime', [$fromAt, $toAt])
+            ->orderBy('received_datetime')
+            ->get();
+
+        foreach ($refills as $refill) {
+            $date = BusinessDayService::toBusinessDate($refill->received_datetime)->toDateString();
+            $product = $refill->product?->name ?? 'Fuel';
+            $qty = number_format((float) $refill->quantity_liters, 2);
+            $rate = rate($refill->purchase_rate);
+            $push($date, 'refill', "Stock refill — {$product}: +{$qty} L @ purchase {$rate}");
+        }
+
+        $fuelPrices = ProductPrice::query()
+            ->with('product:id,name')
+            ->whereIn('product_id', $productIds)
+            ->whereBetween('effective_from', [$fromAt, $toAt])
+            ->orderBy('effective_from')
+            ->get();
+
+        foreach ($fuelPrices as $price) {
+            $date = BusinessDayService::toBusinessDate($price->effective_from)->toDateString();
+            $product = $price->product?->name ?? 'Fuel';
+            $previous = ProductPrice::query()
+                ->where('product_id', $price->product_id)
+                ->where(function ($q) use ($price) {
+                    $q->where('effective_from', '<', $price->effective_from)
+                        ->orWhere(function ($q2) use ($price) {
+                            $q2->where('effective_from', $price->effective_from)
+                                ->where('id', '<', $price->id);
+                        });
+                })
+                ->orderByDesc('effective_from')
+                ->orderByDesc('id')
+                ->value('price');
+
+            if ($previous !== null) {
+                $push($date, 'price_change', "Price change — {$product}: ".rate($previous).' → '.rate($price->price));
+            } else {
+                $push($date, 'price_change', "Sale price set — {$product}: ".rate($price->price));
+            }
+        }
+
+        return $byDay;
     }
 
     public function dailySales(Request $request)
@@ -85,51 +230,107 @@ class ReportController extends Controller
     public function dailySalesCsv(Request $request)
     {
         $data = $this->getDailySalesData($request);
-        $shifts = $data['shifts'];
         $dailyTotals = $data['dailyTotals'];
+        $productBreakdown = $data['productBreakdown'];
+        $mobilOilBreakdown = $data['mobilOilBreakdown'];
         $filename = 'daily-sales-' . now()->format('Y-m-d') . '.csv';
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => "attachment; filename=\"$filename\"",
         ];
 
-        $columns = ['Employee', 'Nozzle', 'Liters', 'Amount', 'Date'];
-
-        $callback = function () use ($shifts, $dailyTotals, $data, $columns) {
+        $callback = function () use ($dailyTotals, $productBreakdown, $mobilOilBreakdown, $data) {
             $f = fopen('php://output', 'w');
             fwrite($f, "\xEF\xBB\xBF");
             fputcsv($f, ['Daily Sales Report']);
             fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
-            fputcsv($f, ['Filter', ucfirst(str_replace('-', ' ', $data['filter']))]);
-            fputcsv($f, ['Records', $shifts->count()]);
-            fputcsv($f, []);
-            fputcsv($f, $columns);
 
-            foreach ($shifts as $s) {
-                fputcsv($f, [
-                    $s->employee->name ?? '',
-                    $s->nozzle->nozzle_number ?? '',
-                    number_format($s->total_liters, 2),
-                    number_format($s->total_amount, 2),
-                    $s->created_at->format('d-m-Y H:i'),
-                ]);
-            }
+            $this->writeFuelProductColumnsCsv($f, $productBreakdown, true);
+            $this->writeMobilOilBreakdownCsv($f, $mobilOilBreakdown);
 
             fputcsv($f, []);
-            fputcsv($f, ['Daily Totals']);
-            fputcsv($f, ['Date', 'Liters', 'Amount', 'Records']);
+            fputcsv($f, ['Daily Breakdown']);
+            fputcsv($f, [
+                'Date',
+                'Petrol Close (L)',
+                'Petrol Rate × Qty',
+                'Petrol Amount',
+                'Petrol Profit',
+                'Diesel Close (L)',
+                'Diesel Rate × Qty',
+                'Diesel Amount',
+                'Diesel Profit',
+                'Mobil Oil Rate × Qty',
+                'Mobil Oil Amount',
+                'Mobil Oil Profit',
+                'Total Amount',
+                'Cash',
+                'Bank',
+                'Profit',
+            ]);
+
+            $stackExpr = function (array $row): string {
+                $qty = (float) ($row['liters'] ?? $row['quantity'] ?? 0);
+                $amount = (float) ($row['sales_amount'] ?? 0);
+                if ($qty <= 0 && $amount <= 0) {
+                    return '';
+                }
+
+                $rate = $row['sale_rate'] !== null ? rate($row['sale_rate']) : '—';
+
+                return $rate.' × '.number_format($qty, 2);
+            };
 
             foreach ($dailyTotals as $day) {
                 fputcsv($f, [
                     $day['label'],
-                    number_format($day['total_liters'], 2),
-                    number_format($day['total_amount'], 2),
-                    $day['record_count'],
+                    number_format($day['petrol']['stock_closing'] ?? 0, 2),
+                    $stackExpr($day['petrol']),
+                    money($day['petrol']['sales_amount'] ?? 0),
+                    money($day['petrol']['total_profit'] ?? 0),
+                    number_format($day['diesel']['stock_closing'] ?? 0, 2),
+                    $stackExpr($day['diesel']),
+                    money($day['diesel']['sales_amount'] ?? 0),
+                    money($day['diesel']['total_profit'] ?? 0),
+                    $stackExpr($day['mobil_oil']),
+                    money($day['mobil_oil']['sales_amount'] ?? 0),
+                    money($day['mobil_oil']['total_profit'] ?? 0),
+                    money($day['total_amount']),
+                    money($day['total_cash']),
+                    money($day['total_online']),
+                    money($day['total_profit']),
                 ]);
+
+                foreach (($day['infos'] ?? []) as $info) {
+                    fputcsv($f, [
+                        $day['label'],
+                        $info['message'] ?? '',
+                    ]);
+                }
             }
 
+            $lastDay = $dailyTotals->last();
+
             fputcsv($f, []);
-            fputcsv($f, ['Grand Total', number_format($data['totalLiters'], 2), number_format($data['totalAmount'], 2), $shifts->count()]);
+            fputcsv($f, [
+                'Grand Total',
+                number_format($lastDay['petrol']['stock_closing'] ?? 0, 2),
+                '',
+                money($dailyTotals->sum(fn ($d) => $d['petrol']['sales_amount'] ?? 0)),
+                money($dailyTotals->sum(fn ($d) => $d['petrol']['total_profit'] ?? 0)),
+                number_format($lastDay['diesel']['stock_closing'] ?? 0, 2),
+                '',
+                money($dailyTotals->sum(fn ($d) => $d['diesel']['sales_amount'] ?? 0)),
+                money($dailyTotals->sum(fn ($d) => $d['diesel']['total_profit'] ?? 0)),
+                '',
+                money($dailyTotals->sum(fn ($d) => $d['mobil_oil']['sales_amount'] ?? 0)),
+                money($dailyTotals->sum(fn ($d) => $d['mobil_oil']['total_profit'] ?? 0)),
+                money($dailyTotals->sum('total_amount')),
+                money($dailyTotals->sum('total_cash')),
+                money($dailyTotals->sum('total_online')),
+                money($dailyTotals->sum('total_profit')),
+            ]);
+
             fclose($f);
         };
 
@@ -178,57 +379,14 @@ class ReportController extends Controller
         $expenseRatio = $sales > 0 ? round(($expenses / $sales) * 100, 2) : 0;
         $ownerFuelRatio = $sales > 0 ? round(($ownerFuel / $sales) * 100, 2) : 0;
 
-        $expenseByType = Expense::whereBetween('expense_date', [$from, $to])
-            ->selectRaw('expense_type, SUM(amount) as total, COUNT(*) as count')
-            ->groupBy('expense_type')
-            ->orderByDesc('total')
-            ->get();
+        $productBreakdown = DailyFuelMetrics::byProduct($from, $to);
+        $mobilOilBreakdown = MobilOilSalesMetrics::byProduct($fromAt, $toAt);
 
-        $salesByDay = EmployeeShift::whereBetween('assigned_date', [$from, $to])
-            ->get()
-            ->groupBy(fn ($s) => Carbon::parse($s->assigned_date)->format('Y-m-d'));
-
-        $expensesByDay = Expense::whereBetween('expense_date', [$from, $to])
-            ->get()
-            ->groupBy(fn ($e) => Carbon::parse($e->expense_date)->format('Y-m-d'));
-
-        $ownerFuelByDay = OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])
-            ->get()
-            ->groupBy(fn ($o) => Carbon::parse($o->usage_datetime)->format('Y-m-d'));
-
-        $mobilOilSalesByDay = MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])
-            ->get()
-            ->groupBy(fn ($s) => Carbon::parse($s->sold_datetime)->format('Y-m-d'));
-
-        $allDates = collect()
-            ->merge($salesByDay->keys())
-            ->merge($expensesByDay->keys())
-            ->merge($ownerFuelByDay->keys())
-            ->merge($mobilOilSalesByDay->keys())
-            ->unique()
-            ->sort()
-            ->values();
-
-        $dailyBreakdown = $allDates->map(function ($date) use ($salesByDay, $expensesByDay, $ownerFuelByDay, $mobilOilSalesByDay) {
-            $dayFuelSales = (float) ($salesByDay->get($date)?->sum('total_amount') ?? 0);
-            $dayMobilOilSales = (float) ($mobilOilSalesByDay->get($date)?->sum('total_amount') ?? 0);
-            $daySales = $dayFuelSales + $dayMobilOilSales;
-            $dayExpenses = (float) ($expensesByDay->get($date)?->sum('amount') ?? 0);
-            $dayOwnerFuel = (float) ($ownerFuelByDay->get($date)?->sum('total_amount') ?? 0);
-            $dayCosts = $dayExpenses + $dayOwnerFuel;
-
-            return [
-                'date' => $date,
-                'label' => Carbon::parse($date)->format('d M Y'),
-                'fuel_sales' => $dayFuelSales,
-                'mobil_oil_sales' => $dayMobilOilSales,
-                'sales' => $daySales,
-                'expenses' => $dayExpenses,
-                'owner_fuel' => $dayOwnerFuel,
-                'costs' => $dayCosts,
-                'net' => $daySales - $dayCosts,
-            ];
-        });
+        $fuelSalesProfit = (float) $productBreakdown->sum('total_profit');
+        $mobilOilSalesProfit = (float) $mobilOilBreakdown->sum('total_profit');
+        $totalSalesProfit = $fuelSalesProfit + $mobilOilSalesProfit;
+        $operatingAndOwnerTotal = $expenses + $ownerFuel;
+        $netSalesProfit = $totalSalesProfit - $operatingAndOwnerTotal;
 
         return array_merge($range, compact(
             'sales',
@@ -253,8 +411,13 @@ class ReportController extends Controller
             'profitMargin',
             'expenseRatio',
             'ownerFuelRatio',
-            'expenseByType',
-            'dailyBreakdown'
+            'productBreakdown',
+            'mobilOilBreakdown',
+            'fuelSalesProfit',
+            'mobilOilSalesProfit',
+            'totalSalesProfit',
+            'operatingAndOwnerTotal',
+            'netSalesProfit'
         ));
     }
 
@@ -286,45 +449,21 @@ class ReportController extends Controller
             fputcsv($f, ['Profit & Loss Report']);
             fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
             fputcsv($f, ['Filter', ucfirst(str_replace('-', ' ', $data['filter']))]);
-            fputcsv($f, []);
-            fputcsv($f, ['Summary']);
-            fputcsv($f, ['Total Sales (PKR)', number_format($data['sales'], 2)]);
-            fputcsv($f, ['Fuel Sales (PKR)', number_format($data['fuelSales'], 2)]);
-            fputcsv($f, ['Mobil Oil Sales (PKR)', number_format($data['mobilOilSales'], 2)]);
-            fputcsv($f, ['Sales Liters', number_format($data['salesLiters'], 2)]);
-            fputcsv($f, ['Sales Transactions', $data['salesCount']]);
-            fputcsv($f, ['Total Expenses (PKR)', number_format($data['expenses'], 2)]);
-            fputcsv($f, ['Owner Fuel Usage (PKR)', number_format($data['ownerFuel'], 2)]);
-            fputcsv($f, ['Tank Refill COGS (PKR)', number_format($data['refillCogs'], 2)]);
-            fputcsv($f, ['Mobil Oil Purchase COGS (PKR)', number_format($data['mobilOilCogs'], 2)]);
-            fputcsv($f, ['Gross Profit (PKR)', number_format($data['grossProfit'], 2)]);
-            fputcsv($f, ['Total Costs incl. COGS (PKR)', number_format($data['totalCosts'], 2)]);
-            fputcsv($f, ['Net Profit (PKR)', number_format($data['netProfit'], 2)]);
             fputcsv($f, ['Profit Margin %', $data['profitMargin']]);
-            fputcsv($f, []);
-            fputcsv($f, ['Expense Breakdown by Type']);
-            fputcsv($f, ['Type', 'Amount (PKR)', 'Count']);
 
-            foreach ($data['expenseByType'] as $row) {
-                fputcsv($f, [$row->expense_type, number_format($row->total, 2), $row->count]);
-            }
+            $this->writeFuelProductColumnsCsv($f, $data['productBreakdown'], simple: true);
+            $this->writeMobilOilBreakdownCsv($f, $data['mobilOilBreakdown'] ?? collect());
 
             fputcsv($f, []);
-            fputcsv($f, ['Daily Breakdown']);
-            fputcsv($f, ['Date', 'Total Sales', 'Fuel Sales', 'Mobil Oil Sales', 'Expenses', 'Owner Fuel', 'Total Costs', 'Net Profit']);
-
-            foreach ($data['dailyBreakdown'] as $day) {
-                fputcsv($f, [
-                    $day['label'],
-                    number_format($day['sales'], 2),
-                    number_format($day['fuel_sales'], 2),
-                    number_format($day['mobil_oil_sales'], 2),
-                    number_format($day['expenses'], 2),
-                    number_format($day['owner_fuel'], 2),
-                    number_format($day['costs'], 2),
-                    number_format($day['net'], 2),
-                ]);
-            }
+            fputcsv($f, ['Total Sales & Profit']);
+            fputcsv($f, ['Category', 'Sales (PKR)', 'Profit/Loss (PKR)']);
+            fputcsv($f, ['Petroleum', money($data['fuelSales']), money($data['fuelSalesProfit'])]);
+            fputcsv($f, ['Mobil Oil', money($data['mobilOilSales']), money($data['mobilOilSalesProfit'])]);
+            fputcsv($f, ['Total', money($data['sales']), money($data['totalSalesProfit'])]);
+            fputcsv($f, ['Operating Expenses', '', '- '.money($data['expenses'])]);
+            fputcsv($f, ['Owner Fuel Usage', '', '- '.money($data['ownerFuel'])]);
+            fputcsv($f, ['Total Expense', '', '- '.money($data['operatingAndOwnerTotal'])]);
+            fputcsv($f, ['Net Profit (Inc. Total Expense)', '', money($data['netSalesProfit'])]);
 
             fclose($f);
         };
@@ -522,14 +661,14 @@ class ReportController extends Controller
             fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
             fputcsv($f, ['Filter', ucfirst(str_replace('-', ' ', $data['filter']))]);
             fputcsv($f, ['Records', $expenses->count()]);
-            fputcsv($f, ['Total Amount', number_format($data['totalAmount'], 2)]);
+            fputcsv($f, ['Total Amount', money($data['totalAmount'])]);
             fputcsv($f, []);
             fputcsv($f, $columns);
 
             foreach ($expenses as $e) {
                 fputcsv($f, [
                     $e->expense_type,
-                    number_format($e->amount, 2),
+                    money($e->amount),
                     \Carbon\Carbon::parse($e->expense_date)->format('d-m-Y'),
                     $e->notes ?? '',
                 ]);
@@ -542,13 +681,13 @@ class ReportController extends Controller
             foreach ($dailyTotals as $day) {
                 fputcsv($f, [
                     $day['label'],
-                    number_format($day['total_amount'], 2),
+                    money($day['total_amount']),
                     $day['record_count'],
                 ]);
             }
 
             fputcsv($f, []);
-            fputcsv($f, ['Grand Total', number_format($data['totalAmount'], 2), $expenses->count()]);
+            fputcsv($f, ['Grand Total', money($data['totalAmount']), $expenses->count()]);
             fclose($f);
         };
 
@@ -667,11 +806,11 @@ class ReportController extends Controller
     private function getMobilOilSalesData(Request $request): array
     {
         $range = $this->getReportRange($request);
-        $from = $range['from'] . ' 00:00:00';
-        $to = $range['to'] . ' 23:59:59';
+        $fromAt = $range['fromAt'];
+        $toAt = $range['toAt'];
 
         $sales = MobilOilSale::with(['product', 'employee'])
-            ->whereBetween('sold_datetime', [$from, $to])
+            ->whereBetween('sold_datetime', [$fromAt, $toAt])
             ->latest('sold_datetime')
             ->get();
 
@@ -737,7 +876,7 @@ class ReportController extends Controller
             fwrite($f, "\xEF\xBB\xBF");
             fputcsv($f, ['Mobil Oil Sales Report']);
             fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
-            fputcsv($f, ['Total Sales (PKR)', number_format($data['totalAmount'], 2)]);
+            fputcsv($f, ['Total Sales (PKR)', money($data['totalAmount'])]);
             fputcsv($f, ['Total Quantity', number_format($data['totalQty'], 2)]);
             fputcsv($f, []);
             fputcsv($f, ['Product', 'Quantity', 'Amount (PKR)', 'Payment', 'Employee', 'Sold At']);
@@ -746,7 +885,7 @@ class ReportController extends Controller
                 fputcsv($f, [
                     $s->product->name ?? '',
                     number_format($s->quantity, 2) . ' ' . ($s->product->unit ?? ''),
-                    number_format($s->total_amount, 2),
+                    money($s->total_amount),
                     ucfirst($s->payment_method),
                     $s->employee->name ?? '',
                     $s->sold_datetime?->format('d-m-Y H:i') ?? '',
@@ -890,5 +1029,527 @@ class ReportController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CASH REPORT
+    |--------------------------------------------------------------------------
+    */
+    private function getCashReportData(Request $request): array
+    {
+        $range = $this->getReportRange($request);
+        $ledger = DailyCashLedger::forRange($range['from'], $range['to']);
+
+        return array_merge($range, $ledger);
+    }
+
+    public function cash(Request $request)
+    {
+        return view('reports.cash', $this->getCashReportData($request));
+    }
+
+    public function cashPdf(Request $request)
+    {
+        $data = $this->getCashReportData($request);
+        $pdf = PDF::loadView('reports.pdf.cash', $data);
+
+        return $pdf->download('cash-report.pdf');
+    }
+
+    public function cashCsv(Request $request)
+    {
+        $data = $this->getCashReportData($request);
+        $filename = 'cash-report-' . now()->format('Y-m-d') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($data) {
+            $f = fopen('php://output', 'w');
+            fwrite($f, "\xEF\xBB\xBF");
+            fputcsv($f, ['Cash Report']);
+            fputcsv($f, ['Range', $data['from'].' to '.$data['to']]);
+            fputcsv($f, []);
+            fputcsv($f, [
+                'Date',
+                'Sales Cash',
+                'Sales Bank',
+                'Cash In',
+                'Cash Out',
+                'Expenses',
+                'Closing',
+            ]);
+
+            foreach ($data['days'] as $day) {
+                fputcsv($f, [
+                    $day['label'],
+                    money($day['sales_cash']),
+                    money($day['sales_bank']),
+                    money($day['cash_in']),
+                    money($day['cash_out']),
+                    money($day['expenses']),
+                    money($day['closing']),
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, [
+                'Period Total',
+                money($data['total_sales_cash']),
+                money($data['total_sales_bank']),
+                money($data['total_cash_in']),
+                money($data['total_cash_out']),
+                money($data['total_expenses']),
+                money($data['closing_balance']),
+            ]);
+
+            fclose($f);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PURCHASE REPORT
+    |--------------------------------------------------------------------------
+    */
+    private function getPurchaseReportData(Request $request): array
+    {
+        $range = $this->getReportRange($request);
+        $fromAt = $range['fromAt'];
+        $toAt = $range['toAt'];
+
+        $fuelPurchases = TankRefill::query()
+            ->with(['product', 'tank'])
+            ->whereBetween('received_datetime', [$fromAt, $toAt])
+            ->latest('received_datetime')
+            ->get();
+
+        $mobilOilPurchases = MobilOilPurchase::query()
+            ->with('product')
+            ->whereBetween('received_datetime', [$fromAt, $toAt])
+            ->latest('received_datetime')
+            ->get();
+
+        $fuelPurchaseAmount = (float) $fuelPurchases->sum('total_amount');
+        $fuelPurchaseLiters = (float) $fuelPurchases->sum('quantity_liters');
+        $mobilOilPurchaseAmount = (float) $mobilOilPurchases->sum('total_amount');
+        $mobilOilPurchaseQty = (float) $mobilOilPurchases->sum('quantity');
+        $totalPurchaseAmount = $fuelPurchaseAmount + $mobilOilPurchaseAmount;
+
+        $fuelByProduct = FuelProducts::all()->map(function ($product) use ($fuelPurchases) {
+            $rows = $fuelPurchases->where('product_id', $product->id);
+            $qty = (float) $rows->sum('quantity_liters');
+            $amount = (float) $rows->sum('total_amount');
+
+            return [
+                'product' => $product->name,
+                'quantity' => round($qty, 2),
+                'amount' => round($amount, 2),
+                'avg_rate' => $qty > 0 ? round($amount / $qty, 2) : null,
+                'count' => $rows->count(),
+            ];
+        })->values();
+
+        $mobilOilByProduct = $mobilOilPurchases
+            ->groupBy('mobil_oil_product_id')
+            ->map(function ($group) {
+                $product = $group->first()->product;
+                $qty = (float) $group->sum('quantity');
+                $amount = (float) $group->sum('total_amount');
+
+                return [
+                    'product' => $product->name ?? 'Unknown',
+                    'unit' => $product->unit ?? '',
+                    'quantity' => round($qty, 2),
+                    'amount' => round($amount, 2),
+                    'count' => $group->count(),
+                ];
+            })
+            ->sortByDesc('amount')
+            ->values();
+
+        return array_merge($range, compact(
+            'fuelPurchases',
+            'mobilOilPurchases',
+            'fuelPurchaseAmount',
+            'fuelPurchaseLiters',
+            'mobilOilPurchaseAmount',
+            'mobilOilPurchaseQty',
+            'totalPurchaseAmount',
+            'fuelByProduct',
+            'mobilOilByProduct'
+        ));
+    }
+
+    public function purchases(Request $request)
+    {
+        return view('reports.purchases', $this->getPurchaseReportData($request));
+    }
+
+    public function purchasesPdf(Request $request)
+    {
+        $data = $this->getPurchaseReportData($request);
+        $pdf = PDF::loadView('reports.pdf.purchases', $data);
+
+        return $pdf->download('purchase-report.pdf');
+    }
+
+    public function purchasesCsv(Request $request)
+    {
+        $data = $this->getPurchaseReportData($request);
+        $filename = 'purchase-report-' . now()->format('Y-m-d') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($data) {
+            $f = fopen('php://output', 'w');
+            fwrite($f, "\xEF\xBB\xBF");
+            fputcsv($f, ['Purchase Report']);
+            fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
+            fputcsv($f, ['Petroleum Purchases', money($data['fuelPurchaseAmount'])]);
+            fputcsv($f, ['Mobil Oil Purchases', money($data['mobilOilPurchaseAmount'])]);
+            fputcsv($f, ['Total Purchases', money($data['totalPurchaseAmount'])]);
+            fputcsv($f, []);
+
+            fputcsv($f, ['Petroleum Purchases']);
+            fputcsv($f, ['Date', 'Product', 'Tank', 'Invoice', 'Qty (L)', 'Rate', 'Amount (PKR)', 'Notes']);
+            foreach ($data['fuelPurchases'] as $p) {
+                fputcsv($f, [
+                    optional($p->received_datetime)->format('d-m-Y H:i'),
+                    $p->product->name ?? '',
+                    $p->tank->tank_number ?? '',
+                    $p->invoice_no ?? '',
+                    number_format((float) $p->quantity_liters, 2),
+                    rate($p->purchase_rate),
+                    money($p->total_amount),
+                    $p->notes ?? '',
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, ['Petroleum by Product']);
+            fputcsv($f, ['Product', 'Qty (L)', 'Avg Rate', 'Amount (PKR)', 'Records']);
+            foreach ($data['fuelByProduct'] as $row) {
+                fputcsv($f, [
+                    $row['product'],
+                    number_format($row['quantity'], 2),
+                    $row['avg_rate'] !== null ? rate($row['avg_rate']) : '',
+                    money($row['amount']),
+                    $row['count'],
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, ['Mobil Oil Purchases']);
+            fputcsv($f, ['Date', 'Product', 'Invoice', 'Qty', 'Rate', 'Amount (PKR)', 'Notes']);
+            foreach ($data['mobilOilPurchases'] as $p) {
+                fputcsv($f, [
+                    optional($p->received_datetime)->format('d-m-Y H:i'),
+                    $p->product->name ?? '',
+                    $p->invoice_no ?? '',
+                    number_format((float) $p->quantity, 2),
+                    rate($p->purchase_rate),
+                    money($p->total_amount),
+                    $p->notes ?? '',
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, ['Mobil Oil by Product']);
+            fputcsv($f, ['Product', 'Qty', 'Amount (PKR)', 'Records']);
+            foreach ($data['mobilOilByProduct'] as $row) {
+                fputcsv($f, [
+                    $row['product'].(! empty($row['unit']) ? ' ('.$row['unit'].')' : ''),
+                    number_format($row['quantity'], 2),
+                    money($row['amount']),
+                    $row['count'],
+                ]);
+            }
+
+            fclose($f);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHIFT REPORT
+    |--------------------------------------------------------------------------
+    */
+    private function getShiftReportData(Request $request): array
+    {
+        $range = $this->getReportRange($request);
+
+        $shifts = EmployeeShift::query()
+            ->with(['employee', 'nozzle.product'])
+            ->when($range['from'] && $range['to'], fn ($q) => $q->whereBetween('assigned_date', [$range['from'], $range['to']]))
+            ->orderByDesc('assigned_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $closed = $shifts->whereIn('status', ['submitted', 'verified']);
+
+        $totalShifts = $shifts->count();
+        $totalLiters = (float) $closed->sum('total_liters');
+        $totalAmount = (float) $closed->sum('total_amount');
+        $totalCash = (float) $closed->sum('cash_received');
+        $totalOnline = (float) $closed->sum('online_received');
+        $totalShortage = (float) $closed->sum('shortage_amount');
+        $totalExtra = (float) $closed->sum('extra_amount');
+
+        $closingByDay = DailyFuelMetrics::dailyClosingStock($range['from'], $range['to']);
+
+        return array_merge($range, compact(
+            'shifts',
+            'closingByDay',
+            'totalShifts',
+            'totalLiters',
+            'totalAmount',
+            'totalCash',
+            'totalOnline',
+            'totalShortage',
+            'totalExtra'
+        ));
+    }
+
+    public function shifts(Request $request)
+    {
+        return view('reports.shifts', $this->getShiftReportData($request));
+    }
+
+    public function shiftsPdf(Request $request)
+    {
+        $data = $this->getShiftReportData($request);
+        $pdf = PDF::loadView('reports.pdf.shifts', $data)->setPaper('a4', 'landscape');
+
+        return $pdf->download('shift-report.pdf');
+    }
+
+    public function shiftsCsv(Request $request)
+    {
+        $data = $this->getShiftReportData($request);
+        $filename = 'shift-report-' . now()->format('Y-m-d') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ];
+
+        $callback = function () use ($data) {
+            $f = fopen('php://output', 'w');
+            fwrite($f, "\xEF\xBB\xBF");
+            fputcsv($f, ['Shift Report']);
+            fputcsv($f, ['Range', $data['from'] . ' to ' . $data['to']]);
+            fputcsv($f, ['Shifts', $data['totalShifts']]);
+            fputcsv($f, ['Total Liters', number_format($data['totalLiters'], 2)]);
+            fputcsv($f, ['Total Amount', money($data['totalAmount'])]);
+            fputcsv($f, ['Cash', money($data['totalCash'])]);
+            fputcsv($f, ['Bank', money($data['totalOnline'])]);
+            fputcsv($f, []);
+            fputcsv($f, [
+                'Date',
+                'Employee',
+                'Nozzle',
+                'Fuel',
+                'Opening Meter',
+                'Closing Meter',
+                'Closing Petrol Stock (L)',
+                'Closing Diesel Stock (L)',
+                'Testing (L)',
+                'Liters',
+                'Rate',
+                'Amount (PKR)',
+                'Cash',
+                'Bank',
+                'Shortage',
+                'Extra',
+                'Status',
+            ]);
+
+            foreach ($data['shifts'] as $s) {
+                $isOpen = $s->status === 'active';
+                $dateKey = Carbon::parse($s->assigned_date)->format('Y-m-d');
+                $closing = $data['closingByDay']->get($dateKey, [
+                    'petrol' => ['stock_closing' => 0.0],
+                    'diesel' => ['stock_closing' => 0.0],
+                ]);
+                fputcsv($f, [
+                    report_date($s->assigned_date),
+                    $s->employee->name ?? '',
+                    $s->nozzle->nozzle_number ?? '',
+                    $s->nozzle->product->name ?? '',
+                    $s->opening_reading !== null ? number_format((float) $s->opening_reading, 2) : '',
+                    $s->closing_reading !== null ? number_format((float) $s->closing_reading, 2) : '',
+                    number_format($closing['petrol']['stock_closing'] ?? 0, 2),
+                    number_format($closing['diesel']['stock_closing'] ?? 0, 2),
+                    $isOpen ? '' : number_format((float) ($s->testing_liters ?? 0), 2),
+                    $isOpen ? '' : number_format((float) ($s->total_liters ?? 0), 2),
+                    $isOpen || $s->price_per_liter === null ? '' : rate($s->price_per_liter),
+                    $isOpen ? '' : money($s->total_amount),
+                    $isOpen ? '' : money($s->cash_received),
+                    $isOpen ? '' : money($s->online_received),
+                    $isOpen ? '' : money($s->shortage_amount),
+                    $isOpen ? '' : money($s->extra_amount),
+                    ucfirst((string) $s->status),
+                ]);
+            }
+
+            fputcsv($f, []);
+            fputcsv($f, [
+                'Grand Total',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                number_format($data['totalLiters'], 2),
+                '',
+                money($data['totalAmount']),
+                money($data['totalCash']),
+                money($data['totalOnline']),
+                money($data['totalShortage']),
+                money($data['totalExtra']),
+                '',
+            ]);
+
+            fclose($f);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * @param  resource  $f
+     * @param  \Illuminate\Support\Collection|array  $productBreakdown
+     */
+    private function writeFuelProductColumnsCsv($f, $productBreakdown, bool $simple = false): void
+    {
+        $rows = collect([
+            $productBreakdown['petrol'] ?? null,
+            $productBreakdown['diesel'] ?? null,
+        ])->filter();
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        fputcsv($f, []);
+        fputcsv($f, ['Petroleum Sales & Profit']);
+
+        if ($simple) {
+            fputcsv($f, ['Fuel', 'Liters', 'Sales Amount', 'Cash', 'Online', 'Total Profit']);
+
+            foreach ($rows as $row) {
+                fputcsv($f, [
+                    $row['product'],
+                    number_format($row['liters'], 2),
+                    money($row['sales_amount']),
+                    money($row['cash']),
+                    money($row['online']),
+                    money($row['total_profit']),
+                ]);
+            }
+
+            fputcsv($f, [
+                'Total',
+                number_format($rows->sum('liters'), 2),
+                money($rows->sum('sales_amount')),
+                money($rows->sum('cash')),
+                money($rows->sum('online')),
+                money($rows->sum('total_profit')),
+            ]);
+
+            return;
+        }
+
+        fputcsv($f, [
+            'Fuel',
+            'Liters',
+            'Sales Amount',
+            'Cash',
+            'Online',
+            'Purchase Rate',
+            'Sale Rate',
+            'Profit / L',
+            'Total Profit',
+            'Closing Stock (L)',
+            'Closing Balance (PKR)',
+        ]);
+
+        foreach ($rows as $row) {
+            fputcsv($f, [
+                $row['product'],
+                number_format($row['liters'], 2),
+                money($row['sales_amount']),
+                money($row['cash']),
+                money($row['online']),
+                $row['purchase_rate'] !== null ? rate($row['purchase_rate']) : '',
+                $row['sale_rate'] !== null ? rate($row['sale_rate']) : '',
+                $row['profit_per_liter'] !== null ? number_format($row['profit_per_liter'], 2) : '',
+                money($row['total_profit']),
+                number_format($row['closing_stock_liters'], 2),
+                $row['closing_balance'] !== null ? money($row['closing_balance']) : '',
+            ]);
+        }
+
+        fputcsv($f, [
+            'Total',
+            number_format($rows->sum('liters'), 2),
+            money($rows->sum('sales_amount')),
+            money($rows->sum('cash')),
+            money($rows->sum('online')),
+            '',
+            '',
+            '',
+            money($rows->sum('total_profit')),
+            number_format($rows->sum('closing_stock_liters'), 2),
+            money($rows->sum(fn ($r) => $r['closing_balance'] ?? 0)),
+        ]);
+    }
+
+    /**
+     * @param  resource  $f
+     * @param  \Illuminate\Support\Collection|array  $mobilOilBreakdown
+     */
+    private function writeMobilOilBreakdownCsv($f, $mobilOilBreakdown): void
+    {
+        $rows = collect($mobilOilBreakdown);
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        fputcsv($f, []);
+        fputcsv($f, ['Mobil Oil Sales & Profit']);
+        fputcsv($f, ['Product', 'Qty', 'Sales Amount', 'Cash', 'Online', 'Total Profit']);
+
+        foreach ($rows as $row) {
+            fputcsv($f, [
+                $row['product'].(! empty($row['unit']) ? ' ('.$row['unit'].')' : ''),
+                number_format($row['quantity'], 2),
+                money($row['sales_amount']),
+                money($row['cash']),
+                money($row['online']),
+                money($row['total_profit']),
+            ]);
+        }
+
+        fputcsv($f, [
+            'Total',
+            number_format($rows->sum('quantity'), 2),
+            money($rows->sum('sales_amount')),
+            money($rows->sum('cash')),
+            money($rows->sum('online')),
+            money($rows->sum('total_profit')),
+        ]);
     }
 }

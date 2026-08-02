@@ -41,11 +41,10 @@ trait CreatesFuelStationFixtures
     ): array {
         $user = $this->createOwner();
 
-        $product = Product::create([
-            'name' => 'Petrol Test',
-            'unit' => 'liter',
-            'status' => true,
-        ]);
+        $fuels = \App\Support\FuelProducts::ensure();
+        $product = $fuels->get(\App\Support\FuelProducts::PETROL);
+        // Keep Diesel present for fixed two-product reports/dropdowns.
+        $fuels->get(\App\Support\FuelProducts::DIESEL);
 
         ProductPriceService::setPrice($product->id, $pricePerLiter, now(), $user->id);
 

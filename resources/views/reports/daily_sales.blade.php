@@ -39,6 +39,14 @@
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     }
 
+    .info-card.cash {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .info-card.online {
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+    }
+
     .info-card-value {
         font-size: 32px;
         font-weight: 700;
@@ -339,7 +347,7 @@
                 <i class="bi bi-cash-coin"></i>
             </div>
             <div class="info-card-label">Total Amount</div>
-            <div class="info-card-value">PKR {{ number_format($totalAmount, 2) }}</div>
+            <div class="info-card-value">PKR {{ money($totalAmount) }}</div>
         </div>
     </div>
     <div class="col-md-6 col-lg-3">
@@ -349,6 +357,24 @@
             </div>
             <div class="info-card-label">Total Liters</div>
             <div class="info-card-value">{{ number_format($totalLiters, 2) }} L</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="info-card cash">
+            <div class="info-card-icon">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="info-card-label">Cash Received</div>
+            <div class="info-card-value">PKR {{ money($totalCash) }}</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="info-card online">
+            <div class="info-card-icon">
+                <i class="bi bi-credit-card-2-front"></i>
+            </div>
+            <div class="info-card-label">Online Received</div>
+            <div class="info-card-value">PKR {{ money($totalOnline) }}</div>
         </div>
     </div>
 </div>
@@ -406,37 +432,147 @@
 </div>
 
 <!-- Table Section -->
-<div class="table-container">
-    @if($shifts->count() > 0)
-        <table class="excel-table">
-            <thead>
+@include('reports.partials.product_breakdown', ['fuelBreakdownSimple' => true, 'wrapperClass' => ''])
+@include('reports.partials.mobil_oil_breakdown')
+
+@if(isset($dailyTotals) && $dailyTotals->count())
+<style>
+    .daily-stack-cell { line-height: 1.35; }
+    .daily-stack-cell .stack-rate { font-size: 12px; color: #64748b; }
+    .daily-stack-cell .stack-amount { font-size: 15px; font-weight: 700; color: #1e293b; margin: 2px 0; }
+    .daily-stack-cell .stack-profit { font-size: 12px; color: #475569; }
+    .daily-stack-cell .stack-stock-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .daily-stack-cell .stack-stock-value { font-size: 13px; font-weight: 600; color: #1e293b; }
+    .daily-stack-cell .stack-block-label { font-size: 11px; color: #64748b; }
+    .daily-stack-cell .stack-block-value { font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+    .daily-total-cell .stack-amount { font-size: 15px; font-weight: 700; color: #1e293b; }
+    .daily-total-cell .stack-split { font-size: 12px; color: #64748b; line-height: 1.4; }
+    .excel-table td.stack-td { text-align: right; vertical-align: top; }
+    .daily-info-row td {
+        background: #f8fafc;
+        color: #334155;
+        font-size: 12px;
+        text-align: left !important;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        border-top: none;
+    }
+    .daily-info-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        margin-right: 8px;
+        border-radius: 3px;
+        vertical-align: middle;
+    }
+    .daily-info-badge.is-refill { background: #e0f2fe; color: #0369a1; }
+    .daily-info-badge.is-price { background: #fef3c7; color: #b45309; }
+</style>
+<div class="table-container mt-4">
+    <h5 class="section-heading p-3 mb-0" style="font-size:16px;font-weight:600;color:#1e293b;">
+        <i class="bi bi-calendar3"></i> Daily Breakdown
+    </h5>
+    <table class="excel-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th style="text-align: right;">Petrol</th>
+                <th style="text-align: right;">Diesel</th>
+                <th style="text-align: right;">Mobil Oil</th>
+                <th style="text-align: right;">Total Amount</th>
+                <th style="text-align: right;">Profit</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($dailyTotals as $day)
                 <tr>
-                    <th>Employee</th>
-                    <th>Nozzle #</th>
-                    <th style="text-align: right;">Liters</th>
-                    <th style="text-align: right;">Amount (PKR)</th>
-                    <th>Date & Time</th>
+                    <td>{{ $day['label'] }}</td>
+                    <td class="stack-td">@include('reports.partials.daily_stack_cell', ['row' => $day['petrol']])</td>
+                    <td class="stack-td">@include('reports.partials.daily_stack_cell', ['row' => $day['diesel']])</td>
+                    <td class="stack-td">@include('reports.partials.daily_stack_cell', ['row' => $day['mobil_oil']])</td>
+                    <td class="stack-td">
+                        <div class="daily-total-cell">
+                            <div class="stack-amount">{{ money($day['total_amount']) }}</div>
+                            <div class="stack-split">
+                                <div>Cash {{ money($day['total_cash']) }}</div>
+                                <div>Bank {{ money($day['total_online']) }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="stack-td">
+                        <div class="stack-amount" style="font-weight:700;">{{ money($day['total_profit']) }}</div>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach($shifts as $s)
-                    <tr>
-                        <td>{{ $s->employee->name ?? 'N/A' }}</td>
-                        <td><span style="background: #f0f4f8; padding: 4px 8px; border-radius: 4px;">{{ $s->nozzle->nozzle_number ?? 'N/A' }}</span></td>
-                        <td style="text-align: right; font-weight: 500;">{{ number_format($s->total_liters, 2) }}</td>
-                        <td style="text-align: right; font-weight: 600; color: #667eea;">{{ number_format($s->total_amount, 2) }}</td>
-                        <td>{{ $s->created_at->format('d M Y, h:i A') }}</td>
+                @foreach(($day['infos'] ?? []) as $info)
+                    <tr class="daily-info-row">
+                        <td colspan="6">
+                            <span class="daily-info-badge {{ ($info['type'] ?? '') === 'refill' ? 'is-refill' : 'is-price' }}">
+                                {{ ($info['type'] ?? '') === 'refill' ? 'Stock' : 'Price' }}
+                            </span>
+                            {{ $info['message'] }}
+                        </td>
                     </tr>
                 @endforeach
-            </tbody>
-        </table>
-    @else
-        <div class="empty-state">
-            <i class="bi bi-inbox"></i>
-            <p>No sales data found for the selected date range.</p>
-        </div>
-    @endif
+            @endforeach
+            @php
+                $periodPetrolAmount = $dailyTotals->sum(fn ($d) => $d['petrol']['sales_amount'] ?? 0);
+                $periodDieselAmount = $dailyTotals->sum(fn ($d) => $d['diesel']['sales_amount'] ?? 0);
+                $periodMobilAmount = $dailyTotals->sum(fn ($d) => $d['mobil_oil']['sales_amount'] ?? 0);
+                $periodPetrolProfit = $dailyTotals->sum(fn ($d) => $d['petrol']['total_profit'] ?? 0);
+                $periodDieselProfit = $dailyTotals->sum(fn ($d) => $d['diesel']['total_profit'] ?? 0);
+                $periodMobilProfit = $dailyTotals->sum(fn ($d) => $d['mobil_oil']['total_profit'] ?? 0);
+                $lastDay = $dailyTotals->last();
+            @endphp
+            <tr style="background:#f8fafc; font-weight:600;">
+                <td>Period Total</td>
+                <td class="stack-td">
+                    <div class="daily-stack-cell">
+                        <div class="stack-stock-value">Close {{ number_format($lastDay['petrol']['stock_closing'] ?? 0, 2) }} L</div>
+                        <div class="stack-amount">{{ money($periodPetrolAmount) }}</div>
+                        <div class="stack-profit">Profit {{ money($periodPetrolProfit) }}</div>
+                    </div>
+                </td>
+                <td class="stack-td">
+                    <div class="daily-stack-cell">
+                        <div class="stack-stock-value">Close {{ number_format($lastDay['diesel']['stock_closing'] ?? 0, 2) }} L</div>
+                        <div class="stack-amount">{{ money($periodDieselAmount) }}</div>
+                        <div class="stack-profit">Profit {{ money($periodDieselProfit) }}</div>
+                    </div>
+                </td>
+                <td class="stack-td">
+                    <div class="stack-amount">{{ money($periodMobilAmount) }}</div>
+                    <div class="stack-profit" style="font-size:12px;font-weight:500;">Profit {{ money($periodMobilProfit) }}</div>
+                </td>
+                <td class="stack-td">
+                    <div class="daily-total-cell">
+                        <div class="stack-amount">{{ money($dailyTotals->sum('total_amount')) }}</div>
+                        <div class="stack-split" style="font-weight:500;">
+                            <div>Cash {{ money($dailyTotals->sum('total_cash')) }}</div>
+                            <div>Bank {{ money($dailyTotals->sum('total_online')) }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="stack-td">
+                    <div class="stack-amount" style="font-weight:700;">{{ money($dailyTotals->sum('total_profit')) }}</div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
+@elseif(
+    (empty($productBreakdown['petrol']) && empty($productBreakdown['diesel']))
+    && (!isset($mobilOilBreakdown) || $mobilOilBreakdown->isEmpty())
+)
+<div class="table-container">
+    <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>No sales data found for the selected date range.</p>
+    </div>
+</div>
+@endif
 
 <script>
     function setFilter(filterType) {

@@ -35,6 +35,18 @@ class ProductPriceServiceTest extends TestCase
         $this->assertEquals(275.5, ProductPriceService::getPricePerLiter($product->id));
     }
 
+    public function test_same_second_price_change_uses_newest_row(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::create(['name' => 'Petrol', 'unit' => 'liter', 'status' => true]);
+        $at = now();
+
+        ProductPriceService::setPrice($product->id, 210, $at, $user->id);
+        ProductPriceService::setPrice($product->id, 270, $at, $user->id);
+
+        $this->assertEquals(270, ProductPriceService::getPricePerLiter($product->id, $at));
+    }
+
     public function test_get_price_per_liter_returns_null_when_no_price(): void
     {
         $product = Product::create(['name' => 'Empty', 'unit' => 'liter', 'status' => true]);

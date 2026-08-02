@@ -9,21 +9,21 @@
         <div class="info-card amount">
             <div class="info-card-icon"><i class="bi bi-cash-coin"></i></div>
             <div class="info-card-label">Total Sales</div>
-            <div class="info-card-value">PKR {{ number_format($sales, 2) }}</div>
+            <div class="info-card-value">PKR {{ money($sales) }}</div>
         </div>
     </div>
     <div class="col-md-6 col-lg-3 mb-3">
         <div class="info-card secondary">
             <div class="info-card-icon"><i class="bi bi-wallet2"></i></div>
             <div class="info-card-label">Total Costs</div>
-            <div class="info-card-value">PKR {{ number_format($totalCosts, 2) }}</div>
+            <div class="info-card-value">PKR {{ money($totalCosts) }}</div>
         </div>
     </div>
     <div class="col-md-6 col-lg-3 mb-3">
         <div class="info-card {{ $netProfit >= 0 ? 'success' : 'danger' }}">
             <div class="info-card-icon"><i class="bi bi-graph-up-arrow"></i></div>
             <div class="info-card-label">Net Profit</div>
-            <div class="info-card-value">PKR {{ number_format($netProfit, 2) }}</div>
+            <div class="info-card-value">PKR {{ money($netProfit) }}</div>
         </div>
     </div>
     <div class="col-md-6 col-lg-3 mb-3">
@@ -75,119 +75,60 @@
     </div>
 </div>
 
-<div class="filter-section">
-    <h5 class="section-heading"><i class="bi bi-clipboard-data"></i> P&amp;L Summary</h5>
-    <div class="pl-line">
-        <span>Fuel Sales <small class="text-muted">({{ $salesCount }} shifts, {{ number_format($salesLiters, 2) }} L)</small></span>
-        <strong class="text-profit">PKR {{ number_format($fuelSales, 2) }}</strong>
-    </div>
-    <div class="pl-line">
-        <span>Mobil Oil Sales <small class="text-muted">({{ $mobilOilSalesCount }} sales, {{ number_format($mobilOilSalesQty, 2) }} units)</small></span>
-        <strong class="text-profit">PKR {{ number_format($mobilOilSales, 2) }}</strong>
-    </div>
-    <div class="pl-line" style="background:#f8fafc;">
-        <span><strong>Total Sales</strong></span>
-        <strong class="text-profit">PKR {{ number_format($sales, 2) }}</strong>
-    </div>
-    <div class="pl-line">
-        <span>Operating Expenses <small class="text-muted">({{ $expenseCount }} entries, {{ $expenseRatio }}% of sales)</small></span>
-        <strong class="text-loss">- PKR {{ number_format($expenses, 2) }}</strong>
-    </div>
-    <div class="pl-line">
-        <span>Owner Fuel Usage <small class="text-muted">({{ $ownerFuelCount }} entries, {{ number_format($ownerFuelLiters, 2) }} L, {{ $ownerFuelRatio }}% of sales)</small></span>
-        <strong class="text-loss">- PKR {{ number_format($ownerFuel, 2) }}</strong>
-    </div>
-    <div class="pl-line">
-        <span>Tank Refill COGS <small class="text-muted">({{ number_format($refillLiters, 2) }} L purchased)</small></span>
-        <strong class="text-loss">- PKR {{ number_format($refillCogs, 2) }}</strong>
-    </div>
-    <div class="pl-line">
-        <span>Mobil Oil Purchase COGS <small class="text-muted">({{ number_format($mobilOilPurchaseQty, 2) }} units purchased)</small></span>
-        <strong class="text-loss">- PKR {{ number_format($mobilOilCogs, 2) }}</strong>
-    </div>
-    <div class="pl-line">
-        <span>Total Costs (incl. COGS)</span>
-        <strong class="text-loss">- PKR {{ number_format($totalCosts, 2) }}</strong>
-    </div>
-    <div class="pl-line" style="background:#f0fdf4;">
-        <span>Gross Profit <small class="text-muted">(before refill purchases)</small></span>
-        <strong class="{{ $grossProfit >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($grossProfit, 2) }}</strong>
-    </div>
-    <div class="pl-line total">
-        <span>Net Profit / Loss <small class="text-muted">(after COGS)</small></span>
-        <strong class="{{ $netProfit >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($netProfit, 2) }}</strong>
-    </div>
-</div>
+{{-- Page 1: Sales & Profit --}}
+@include('reports.partials.product_breakdown', ['fuelBreakdownSimple' => true])
+@include('reports.partials.mobil_oil_breakdown')
 
-@if($expenseByType->count() > 0)
-<div class="table-container">
-    <h5 class="section-heading p-3 mb-0"><i class="bi bi-tags"></i> Expense Breakdown by Type</h5>
+<div class="table-container mt-4">
+    <h5 class="section-heading p-3 mb-0" style="font-size:16px;font-weight:600;color:#1e293b;">
+        <i class="bi bi-bar-chart"></i> Total Sales &amp; Profit
+    </h5>
     <table class="excel-table">
         <thead>
             <tr>
-                <th>Expense Type</th>
-                <th style="text-align: right;">Amount (PKR)</th>
-                <th style="text-align: right;">% of Sales</th>
-                <th style="text-align: right;">Entries</th>
+                <th>Category</th>
+                <th style="text-align: right;">Sales (PKR)</th>
+                <th style="text-align: right;">Profit/Loss (PKR)</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($expenseByType as $row)
-                <tr>
-                    <td>{{ $row->expense_type }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ number_format($row->total, 2) }}</td>
-                    <td style="text-align: right;">{{ $sales > 0 ? number_format(($row->total / $sales) * 100, 1) : 0 }}%</td>
-                    <td style="text-align: right;">{{ $row->count }}</td>
-                </tr>
-            @endforeach
+            <tr>
+                <td><strong>Petroleum</strong></td>
+                <td style="text-align: right;">{{ money($fuelSales) }}</td>
+                <td style="text-align: right; font-weight: 600;" class="{{ $fuelSalesProfit >= 0 ? 'text-profit' : 'text-loss' }}">{{ money($fuelSalesProfit) }}</td>
+            </tr>
+            <tr>
+                <td><strong>Mobil Oil</strong></td>
+                <td style="text-align: right;">{{ money($mobilOilSales) }}</td>
+                <td style="text-align: right; font-weight: 600;" class="{{ $mobilOilSalesProfit >= 0 ? 'text-profit' : 'text-loss' }}">{{ money($mobilOilSalesProfit) }}</td>
+            </tr>
+            <tr style="background:#f8fafc; font-weight:600;">
+                <td>Total</td>
+                <td style="text-align: right;">{{ money($sales) }}</td>
+                <td style="text-align: right;" class="{{ $totalSalesProfit >= 0 ? 'text-profit' : 'text-loss' }}">{{ money($totalSalesProfit) }}</td>
+            </tr>
+            <tr>
+                <td>Operating Expenses</td>
+                <td style="text-align: right;">—</td>
+                <td style="text-align: right;" class="text-loss">- {{ money($expenses) }}</td>
+            </tr>
+            <tr>
+                <td>Owner Fuel Usage</td>
+                <td style="text-align: right;">—</td>
+                <td style="text-align: right;" class="text-loss">- {{ money($ownerFuel) }}</td>
+            </tr>
+            <tr style="background:#f8fafc; font-weight:600;">
+                <td>Total Expense</td>
+                <td style="text-align: right;">—</td>
+                <td style="text-align: right;" class="text-loss">- {{ money($operatingAndOwnerTotal) }}</td>
+            </tr>
+            <tr style="background:#f0f4f8; font-weight:700;">
+                <td>Net Profit (Inc. Total Expense)</td>
+                <td style="text-align: right;">—</td>
+                <td style="text-align: right;" class="{{ $netSalesProfit >= 0 ? 'text-profit' : 'text-loss' }}">{{ money($netSalesProfit) }}</td>
+            </tr>
         </tbody>
     </table>
-</div>
-@endif
-
-<div class="table-container">
-    <h5 class="section-heading p-3 mb-0"><i class="bi bi-calendar3"></i> Daily Breakdown</h5>
-    @if($dailyBreakdown->count() > 0)
-        <table class="excel-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th style="text-align: right;">Sales</th>
-                    <th style="text-align: right;">Expenses</th>
-                    <th style="text-align: right;">Owner Fuel</th>
-                    <th style="text-align: right;">Total Costs</th>
-                    <th style="text-align: right;">Net Profit</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($dailyBreakdown as $day)
-                    <tr>
-                        <td>{{ $day['label'] }}</td>
-                        <td style="text-align: right;">{{ number_format($day['sales'], 2) }}</td>
-                        <td style="text-align: right;">{{ number_format($day['expenses'], 2) }}</td>
-                        <td style="text-align: right;">{{ number_format($day['owner_fuel'], 2) }}</td>
-                        <td style="text-align: right;">{{ number_format($day['costs'], 2) }}</td>
-                        <td style="text-align: right; font-weight: 600;" class="{{ $day['net'] >= 0 ? 'text-profit' : 'text-loss' }}">
-                            {{ number_format($day['net'], 2) }}
-                        </td>
-                    </tr>
-                @endforeach
-                <tr style="background: #f0f4f8;">
-                    <td><strong>Period Total</strong></td>
-                    <td style="text-align: right;"><strong>{{ number_format($sales, 2) }}</strong></td>
-                    <td style="text-align: right;"><strong>{{ number_format($expenses, 2) }}</strong></td>
-                    <td style="text-align: right;"><strong>{{ number_format($ownerFuel, 2) }}</strong></td>
-                    <td style="text-align: right;"><strong>{{ number_format($totalCosts, 2) }}</strong></td>
-                    <td style="text-align: right;"><strong class="{{ $netProfit >= 0 ? 'text-profit' : 'text-loss' }}">{{ number_format($netProfit, 2) }}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-    @else
-        <div class="empty-state">
-            <i class="bi bi-inbox"></i>
-            <p>No financial activity found for the selected period.</p>
-        </div>
-    @endif
 </div>
 
 <script>

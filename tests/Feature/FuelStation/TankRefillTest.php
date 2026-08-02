@@ -36,12 +36,11 @@ class TankRefillTest extends TestCase
     public function test_refill_rejects_product_tank_mismatch(): void
     {
         $graph = $this->createFuelStationGraph();
-
-        $other = \App\Models\Product::create(['name' => 'Other', 'unit' => 'liter', 'status' => true]);
+        $dieselId = \App\Support\FuelProducts::diesel()->id;
 
         $response = $this->actingAs($graph['user'])->post(route('tank-refills.store'), [
             'tank_id' => $graph['tank']->id,
-            'product_id' => $other->id,
+            'product_id' => $dieselId,
             'quantity_liters' => 100,
             'purchase_rate' => 250,
         ]);

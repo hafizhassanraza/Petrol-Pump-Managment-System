@@ -217,6 +217,39 @@
         </div>
         <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
     </a>
+
+    <a href="{{ route('reports.cash') }}" class="report-card daily">
+        <div class="card-top">
+            <div>
+                <div class="report-card-title">Cash Report</div>
+                <div class="report-card-text">Review sales cash/online split and cash in/out transactions for the period.</div>
+            </div>
+            <div class="card-icon"><i class="bi bi-cash-stack"></i></div>
+        </div>
+        <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
+    </a>
+
+    <a href="{{ route('reports.purchases') }}" class="report-card expense">
+        <div class="card-top">
+            <div>
+                <div class="report-card-title">Purchase Report</div>
+                <div class="report-card-text">See petroleum and mobil oil purchase invoices, quantities, and amounts.</div>
+            </div>
+            <div class="card-icon"><i class="bi bi-bag-check"></i></div>
+        </div>
+        <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
+    </a>
+
+    <a href="{{ route('reports.shifts') }}" class="report-card variance">
+        <div class="card-top">
+            <div>
+                <div class="report-card-title">Shift Report</div>
+                <div class="report-card-text">Review employee nozzle shifts with liters, amount, cash/bank, and status.</div>
+            </div>
+            <div class="card-icon"><i class="bi bi-person-workspace"></i></div>
+        </div>
+        <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
+    </a>
 </div>
 
 @endsection

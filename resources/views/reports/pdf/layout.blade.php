@@ -11,7 +11,6 @@
         }
 
         .header {
-            text-align: center;
             margin-bottom: 20px;
             background: #16a34a;
             color: #fff;
@@ -19,21 +18,48 @@
             border-radius: 10px;
         }
 
+        .header-table,
+        .header-table td,
+        .meta-table,
+        .meta-table td {
+            border: none !important;
+            background: transparent !important;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-table td {
+            padding: 0;
+            vertical-align: middle;
+            text-align: left;
+        }
+
         .company {
             font-size: 18px;
             font-weight: bold;
+            line-height: 1.3;
         }
 
         .title {
             font-size: 14px;
-            margin-top: 5px;
+            margin-top: 4px;
+            line-height: 1.3;
         }
 
-        .info {
-            text-align: right;
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
             font-size: 11px;
-            margin-bottom: 10px;
             color: #334155;
+        }
+
+        .meta-table td {
+            padding: 0;
+            vertical-align: middle;
         }
 
         .range-info {
@@ -74,22 +100,27 @@
 <body>
 
 <div class="header">
-    <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
-        <div style="text-align:left;flex:0 0 80px;">
-            @if(file_exists(public_path('images/logo.png')))
-                <img src="{{ public_path('images/logo.png') }}" alt="Logo" style="height:60px">
-            @endif
-        </div>
-        <div style="text-align:left;">
-            <div class="company">Fuel Station Management System</div>
-            <div class="title">@yield('title')</div>
-        </div>
-    </div>
+    <table class="header-table">
+        <tr>
+            <td style="width:80px;">
+                @if(file_exists(public_path('images/logo.png')))
+                    <img src="{{ public_path('images/logo.png') }}" alt="Logo" style="height:60px">
+                @endif
+            </td>
+            <td>
+                <div class="company">Fuel Station Management System</div>
+                <div class="title">@yield('title')</div>
+            </td>
+        </tr>
+    </table>
 </div>
 
-<div class="info">
-    Generated: {{ date('d M Y H:i') }}
-</div>
+<table class="meta-table">
+    <tr>
+        <td style="text-align:left;">Generated: {{ date('d M Y H:i') }}</td>
+        <td style="text-align:right;">@yield('report-meta')</td>
+    </tr>
+</table>
 
 @yield('content')
 

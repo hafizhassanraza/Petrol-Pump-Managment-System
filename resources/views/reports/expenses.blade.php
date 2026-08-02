@@ -332,7 +332,7 @@
                 <i class="bi bi-cash-stack"></i>
             </div>
             <div class="info-card-label">Total Amount</div>
-            <div class="info-card-value">PKR {{ number_format($totalAmount, 2) }}</div>
+            <div class="info-card-value">PKR {{ money($totalAmount) }}</div>
         </div>
     </div>
     <div class="col-md-6 col-lg-3">
@@ -409,7 +409,7 @@
                 @foreach($expenses as $e)
                     <tr>
                         <td><span style="background: #f0f4f8; padding: 4px 8px; border-radius: 4px;">{{ $e->expense_type }}</span></td>
-                        <td style="text-align: right; font-weight: 600; color: #667eea;">{{ number_format($e->amount, 2) }}</td>
+                        <td style="text-align: right; font-weight: 600; color: #667eea;">{{ money($e->amount) }}</td>
                         <td>{{ \Carbon\Carbon::parse($e->expense_date)->format('d M Y') }}</td>
                         <td>{{ $e->notes ?: '—' }}</td>
                     </tr>

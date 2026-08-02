@@ -30,7 +30,7 @@
                         <td>{{ $r->stock_before_liters !== null ? number_format($r->stock_before_liters, 2) : '—' }}</td>
                         <td>{{ number_format($r->quantity_liters, 2) }}</td>
                         <td>{{ number_format($r->purchase_rate, 2) }}</td>
-                        <td><strong>{{ number_format($r->total_amount, 2) }}</strong></td>
+                        <td><strong>{{ money($r->total_amount) }}</strong></td>
                         <td>{{ $r->received_datetime ? \Carbon\Carbon::parse($r->received_datetime)->format('d M Y H:i') : '—' }}</td>
                     </tr>
                 @empty

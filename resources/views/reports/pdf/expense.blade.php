@@ -9,7 +9,7 @@ Expense Report
 <div class="range-info">
     <strong>Range:</strong> {{ \Carbon\Carbon::parse($from)->format('d M Y') }} &mdash; {{ \Carbon\Carbon::parse($to)->format('d M Y') }}<br>
     <strong>Filter:</strong> {{ ucfirst(str_replace('-', ' ', $filter)) }}<br>
-    <strong>Total Amount:</strong> PKR {{ number_format($totalAmount, 2) }} &nbsp;|&nbsp;
+    <strong>Total Amount:</strong> PKR {{ money($totalAmount) }} &nbsp;|&nbsp;
     <strong>Records:</strong> {{ $totalRecords }}
 </div>
 
@@ -26,7 +26,7 @@ Expense Report
         @foreach($expenses as $e)
             <tr>
                 <td>{{ $e->expense_type }}</td>
-                <td>{{ number_format($e->amount, 2) }}</td>
+                <td>{{ money($e->amount) }}</td>
                 <td>{{ \Carbon\Carbon::parse($e->expense_date)->format('d-m-Y') }}</td>
                 <td>{{ $e->notes ?? '' }}</td>
             </tr>
@@ -48,13 +48,13 @@ Expense Report
             @foreach($dailyTotals as $day)
                 <tr>
                     <td>{{ $day['label'] }}</td>
-                    <td>{{ number_format($day['total_amount'], 2) }}</td>
+                    <td>{{ money($day['total_amount']) }}</td>
                     <td>{{ $day['record_count'] }}</td>
                 </tr>
             @endforeach
             <tr>
                 <td><strong>Grand Total</strong></td>
-                <td><strong>{{ number_format($totalAmount, 2) }}</strong></td>
+                <td><strong>{{ money($totalAmount) }}</strong></td>
                 <td><strong>{{ $totalRecords }}</strong></td>
             </tr>
         </tbody>

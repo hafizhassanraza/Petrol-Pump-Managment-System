@@ -19,13 +19,9 @@ class LayoutComposer
         return match (true) {
             $name === 'home' => 'Home',
             $name === 'dashboard' => 'Dashboard',
-            str_starts_with($name, 'products.') => match ($name) {
-                'products.edit' => 'Edit Product',
-                default => 'Products',
-            },
             str_starts_with($name, 'product-prices.') => match ($name) {
-                'product-prices.create' => 'Set Product Price',
-                default => 'Product Prices',
+                'product-prices.create' => 'Set Fuel Price',
+                default => 'Fuel Prices',
             },
             str_starts_with($name, 'tanks.') => match ($name) {
                 'tanks.create' => 'Add Tank',
@@ -73,7 +69,13 @@ class LayoutComposer
             },
             str_starts_with($name, 'expenses.') => match ($name) {
                 'expenses.create' => 'Add Expense',
+                'expenses.edit' => 'Edit Expense',
                 default => 'Expenses',
+            },
+            str_starts_with($name, 'cash-transactions.') => match ($name) {
+                'cash-transactions.create' => 'Add Cash Transaction',
+                'cash-transactions.edit' => 'Edit Cash Transaction',
+                default => 'Cash In / Out',
             },
             str_starts_with($name, 'mobil-oil.products.') => match ($name) {
                 'mobil-oil.products.create' => 'Add Mobil Oil Product',

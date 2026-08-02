@@ -63,13 +63,29 @@ class ExpenseTest extends TestCase
 
     public function test_salary_expense_recalculates_from_active_employees_on_update(): void
     {
-        $graph = $this->createFuelStationGraph();
+        $user = $this->createOwner();
 
         Employee::create([
-            'employee_code' => 'EMP-TEST-02',
+            'employee_code' => 'EMP-SAL-01',
+            'name' => 'First Attendant',
+            'status' => true,
+            'salary' => 30000,
+            'joining_date' => now()->subMonth(),
+        ]);
+
+        Employee::create([
+            'employee_code' => 'EMP-SAL-02',
             'name' => 'Second Attendant',
             'status' => true,
             'salary' => 25000,
+            'joining_date' => now()->subMonth(),
+        ]);
+
+        Employee::create([
+            'employee_code' => 'EMP-SAL-03',
+            'name' => 'Inactive Attendant',
+            'status' => false,
+            'salary' => 40000,
             'joining_date' => now()->subMonth(),
         ]);
 
@@ -77,10 +93,12 @@ class ExpenseTest extends TestCase
             'expense_type' => 'Salary',
             'amount' => 1000,
             'expense_date' => now()->toDateString(),
-            'created_by' => $graph['user']->id,
+            'created_by' => $user->id,
         ]);
 
-        $response = $this->actingAs($graph['user'])->put(route('expenses.update', $expense), [
+        $expected = (float) Employee::where('status', 1)->sum('salary');
+
+        $response = $this->actingAs($user)->put(route('expenses.update', $expense), [
             'expense_type' => 'Salary',
             'amount' => 1000,
             'expense_date' => now()->toDateString(),
@@ -90,7 +108,8 @@ class ExpenseTest extends TestCase
         $response->assertRedirect(route('expenses.index'));
 
         $expense->refresh();
-        $this->assertEquals(55000, (float) $expense->amount);
+        $this->assertEquals(55000, $expected);
+        $this->assertEquals($expected, (float) $expense->amount);
         $this->assertEquals('Monthly payroll', $expense->notes);
     }
 }

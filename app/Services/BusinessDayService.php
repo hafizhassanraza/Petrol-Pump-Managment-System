@@ -28,6 +28,20 @@ class BusinessDayService
     }
 
     /**
+     * Calendar date of the business day that contains a datetime (9 AM boundary).
+     */
+    public static function toBusinessDate(Carbon|string $datetime): Carbon
+    {
+        $dt = Carbon::parse($datetime);
+
+        if ($dt->hour < self::SHIFT_START_HOUR) {
+            return $dt->copy()->subDay()->startOfDay();
+        }
+
+        return $dt->copy()->startOfDay();
+    }
+
+    /**
      * Datetime range for one business day: 09:00:00 → next day 08:59:59.
      */
     public static function businessDayBounds(Carbon|string $businessDate): array

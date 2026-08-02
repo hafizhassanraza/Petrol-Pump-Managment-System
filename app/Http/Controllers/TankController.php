@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Tank;
+use App\Support\FuelProducts;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TankController extends Controller
 {
@@ -34,7 +35,7 @@ class TankController extends Controller
 
     public function create()
     {
-        $products = Product::where('status', 1)->get();
+        $products = FuelProducts::all();
 
         return view('tanks.create', compact('products'));
     }
@@ -50,7 +51,7 @@ class TankController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => ['required', Rule::in(FuelProducts::all()->pluck('id')->all())],
             'tank_number' => 'required|unique:tanks,tank_number',
             'capacity_liters' => 'required|numeric|min:1',
             'current_stock_liters' => 'required|numeric|min:0|lte:capacity_liters',
@@ -81,7 +82,7 @@ class TankController extends Controller
 
     public function edit(Tank $tank)
     {
-        $products = Product::where('status', 1)->get();
+        $products = FuelProducts::all();
 
         return view('tanks.edit', compact(
             'tank',
@@ -100,7 +101,7 @@ class TankController extends Controller
     public function update(Request $request, Tank $tank)
     {
         $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => ['required', Rule::in(FuelProducts::all()->pluck('id')->all())],
             'tank_number' => 'required|unique:tanks,tank_number,' . $tank->id,
             'capacity_liters' => 'required|numeric|min:1',
             'current_stock_liters' => 'required|numeric|min:0|lte:capacity_liters',

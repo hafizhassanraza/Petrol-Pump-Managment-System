@@ -26,7 +26,7 @@
                         <td>{{ $p->invoice_no ?? '—' }}</td>
                         <td>{{ number_format($p->quantity, 2) }} {{ $p->product->unit ?? '' }}</td>
                         <td>{{ number_format($p->purchase_rate, 2) }}</td>
-                        <td><strong>{{ number_format($p->total_amount, 2) }}</strong></td>
+                        <td><strong>{{ money($p->total_amount) }}</strong></td>
                         <td>{{ $p->received_datetime?->format('d M Y H:i') ?? '—' }}</td>
                     </tr>
                 @empty

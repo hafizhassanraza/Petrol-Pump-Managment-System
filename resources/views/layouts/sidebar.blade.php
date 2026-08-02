@@ -6,11 +6,8 @@
     <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
         <i class="bi bi-speedometer2"></i> Dashboard
     </a>
-    <a href="{{ route('products.index') }}" class="{{ request()->routeIs('products.*') ? 'active' : '' }}">
-        <i class="bi bi-droplet"></i> Products
-    </a>
     <a href="{{ route('product-prices.index') }}" class="{{ request()->routeIs('product-prices.*') ? 'active' : '' }}">
-        <i class="bi bi-tag"></i> Product Prices
+        <i class="bi bi-tag"></i> Fuel Prices
     </a>
     <a href="{{ route('tanks.index') }}" class="{{ request()->routeIs('tanks.*') ? 'active' : '' }}">
         <i class="bi bi-database"></i> Tanks
@@ -41,6 +38,9 @@
     </a>
     <a href="{{ route('expenses.index') }}" class="{{ request()->routeIs('expenses.*') ? 'active' : '' }}">
         <i class="bi bi-cash-stack"></i> Expenses
+    </a>
+    <a href="{{ route('cash-transactions.index') }}" class="{{ request()->routeIs('cash-transactions.*') ? 'active' : '' }}">
+        <i class="bi bi-wallet2"></i> Cash In / Out
     </a>
 
     <div class="sidebar-section-label">Mobil Oil</div>

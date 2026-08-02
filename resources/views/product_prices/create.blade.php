@@ -8,9 +8,9 @@
     <form method="POST" action="{{ route('product-prices.store') }}">
         @csrf
         <div class="mb-3">
-            <label class="form-label">Product *</label>
+            <label class="form-label">Fuel *</label>
             <select name="product_id" class="form-control" required>
-                <option value="">Select product</option>
+                <option value="">Select Petrol or Diesel</option>
                 @foreach($products as $p)
                     <option value="{{ $p->id }}" @selected(old('product_id') == $p->id)>{{ $p->name }}</option>
                 @endforeach

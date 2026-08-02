@@ -69,7 +69,7 @@ class ExpensesController extends Controller
         ]);
 
         return redirect()->route('expenses.index')
-            ->with('success', 'Expense updated (PKR ' . number_format($amount, 2) . ').');
+            ->with('success', 'Expense updated (PKR ' . money($amount) . ').');
     }
 
     /**

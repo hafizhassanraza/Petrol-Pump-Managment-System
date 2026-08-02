@@ -69,7 +69,7 @@
         <div class="mb-3">
             <label>Total Amount (PKR)</label>
             <div id="totalAmountDisplay" class="form-control bg-light fw-bold fs-5 text-success" style="height:auto;padding:12px 14px;">
-                {{ number_format($usage->total_amount, 2) }}
+                {{ money($usage->total_amount) }}
             </div>
             <small class="text-muted">Recalculated from liters × current price for the usage date.</small>
         </div>

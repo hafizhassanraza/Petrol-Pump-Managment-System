@@ -9,10 +9,10 @@ use App\Models\Expense;
 use App\Models\MobilOilSale;
 use App\Models\Nozzle;
 use App\Models\OwnerFuelUsage;
-use App\Models\Product;
 use App\Models\Tank;
 use App\Models\TankRefill;
 use App\Services\BusinessDayService;
+use App\Support\FuelProducts;
 use App\Support\ReportRange;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -36,7 +36,7 @@ class DashboardController extends Controller
         $periodLabel = $this->periodLabel($range['filter'], $from, $to);
 
         $counts = [
-            'products' => Product::count(),
+            'products' => FuelProducts::all()->count(),
             'tanks' => Tank::count(),
             'dispensers' => Dispenser::count(),
             'nozzles' => Nozzle::count(),
@@ -216,18 +216,24 @@ class DashboardController extends Controller
 
     private function buildSalesByProduct(string $from, string $to): Collection
     {
-        return EmployeeShift::with('nozzle.product')
+        $ids = FuelProducts::ids();
+        $shifts = EmployeeShift::with('nozzle')
             ->whereBetween('assigned_date', [$from, $to])
             ->whereIn('status', ['submitted', 'verified'])
-            ->get()
-            ->groupBy(fn ($shift) => $shift->nozzle->product->name ?? 'Unknown')
-            ->map(fn ($group, $name) => [
-                'product' => $name,
-                'amount' => (float) $group->sum('total_amount'),
-                'liters' => (float) $group->sum('total_liters'),
-            ])
-            ->sortByDesc('amount')
-            ->values();
+            ->get();
+
+        return collect([
+            [
+                'product' => FuelProducts::PETROL,
+                'amount' => (float) $shifts->filter(fn ($s) => (int) ($s->nozzle->product_id ?? 0) === $ids['petrol'])->sum('total_amount'),
+                'liters' => (float) $shifts->filter(fn ($s) => (int) ($s->nozzle->product_id ?? 0) === $ids['petrol'])->sum('total_liters'),
+            ],
+            [
+                'product' => FuelProducts::DIESEL,
+                'amount' => (float) $shifts->filter(fn ($s) => (int) ($s->nozzle->product_id ?? 0) === $ids['diesel'])->sum('total_amount'),
+                'liters' => (float) $shifts->filter(fn ($s) => (int) ($s->nozzle->product_id ?? 0) === $ids['diesel'])->sum('total_liters'),
+            ],
+        ]);
     }
 
     private function buildTopEmployees(string $from, string $to): Collection

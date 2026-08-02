@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Nozzle;
 use App\Models\Dispenser;
 use App\Models\Tank;
-use App\Models\Product;
+use App\Support\FuelProducts;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class NozzleController extends Controller
 {
@@ -24,7 +25,7 @@ class NozzleController extends Controller
         return view('nozzles.create', [
             'dispensers' => Dispenser::where('status', 1)->get(),
             'tanks' => Tank::where('status', 1)->get(),
-            'products' => Product::where('status', 1)->get(),
+            'products' => FuelProducts::all(),
         ]);
     }
 
@@ -33,7 +34,7 @@ class NozzleController extends Controller
         $request->validate([
             'dispenser_id' => 'required|exists:dispensers,id',
             'tank_id' => 'required|exists:tanks,id',
-            'product_id' => 'required|exists:products,id',
+            'product_id' => ['required', Rule::in(FuelProducts::all()->pluck('id')->all())],
             'nozzle_number' => 'required|unique:nozzles,nozzle_number',
             'current_meter_reading' => 'required|numeric|min:0',
         ]);
@@ -67,7 +68,7 @@ class NozzleController extends Controller
             'nozzle' => $nozzle,
             'dispensers' => Dispenser::where('status', 1)->get(),
             'tanks' => Tank::where('status', 1)->get(),
-            'products' => Product::where('status', 1)->get(),
+            'products' => FuelProducts::all(),
         ]);
     }
 
@@ -76,7 +77,7 @@ class NozzleController extends Controller
         $request->validate([
             'dispenser_id' => 'required|exists:dispensers,id',
             'tank_id' => 'required|exists:tanks,id',
-            'product_id' => 'required|exists:products,id',
+            'product_id' => ['required', Rule::in(FuelProducts::all()->pluck('id')->all())],
             'nozzle_number' => 'required|unique:nozzles,nozzle_number,' . $nozzle->id,
             'current_meter_reading' => 'required|numeric|min:0',
         ]);

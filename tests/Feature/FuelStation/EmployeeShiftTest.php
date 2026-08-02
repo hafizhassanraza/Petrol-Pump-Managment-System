@@ -104,6 +104,8 @@ class EmployeeShiftTest extends TestCase
         $this->assertSame('submitted', $shift->status);
         $this->assertEquals(90, (float) $shift->total_liters);
         $this->assertEquals(9000, (float) $shift->total_amount);
+        $this->assertEquals(8500, (float) $shift->cash_received);
+        $this->assertEquals(500, (float) $shift->online_received);
         $this->assertEquals(1100, (float) $graph['nozzle']->fresh()->current_meter_reading);
         $this->assertEquals(9910, (float) $graph['tank']->fresh()->current_stock_liters);
 

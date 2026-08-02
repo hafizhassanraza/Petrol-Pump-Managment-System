@@ -8,7 +8,7 @@
         <div class="col-md-4">
             <div class="p-3 border rounded-3 bg-light">
                 <small class="text-muted">Period Total Sales</small>
-                <div class="fs-4 fw-bold text-success">PKR {{ number_format($totalAmount, 2) }}</div>
+                <div class="fs-4 fw-bold text-success">PKR {{ money($totalAmount) }}</div>
             </div>
         </div>
     </div>
@@ -36,8 +36,8 @@
                     <tr>
                         <td>{{ $s->product->name ?? '—' }}</td>
                         <td>{{ number_format($s->quantity, 2) }} {{ $s->product->unit ?? '' }}</td>
-                        <td>{{ number_format($s->unit_price, 2) }}</td>
-                        <td><strong>{{ number_format($s->total_amount, 2) }}</strong></td>
+                        <td>{{ rate($s->unit_price) }}</td>
+                        <td><strong>{{ money($s->total_amount) }}</strong></td>
                         <td>{{ ucfirst($s->payment_method) }}</td>
                         <td>{{ $s->employee->name ?? '—' }}</td>
                         <td>{{ $s->sold_datetime?->format('d M Y H:i') ?? '—' }}</td>

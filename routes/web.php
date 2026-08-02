@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TankController;
 use App\Http\Controllers\DispenserController;
@@ -13,6 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TankRefillsController;
 use App\Http\Controllers\TankDipReadingController;
 use App\Http\Controllers\OwnerFuelUsageController;
+use App\Http\Controllers\CashTransactionController;
 use App\Http\Controllers\ExpensesController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProductPriceController;
@@ -50,6 +50,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/mobil-oil-sales', [ReportController::class, 'mobilOilSales'])->name('mobil-oil-sales');
         Route::get('/mobil-oil-sales/pdf', [ReportController::class, 'mobilOilSalesPdf'])->name('mobil-oil-sales.pdf');
         Route::get('/mobil-oil-sales/csv', [ReportController::class, 'mobilOilSalesCsv'])->name('mobil-oil-sales.csv');
+        Route::get('/cash', [ReportController::class, 'cash'])->name('cash');
+        Route::get('/cash/pdf', [ReportController::class, 'cashPdf'])->name('cash.pdf');
+        Route::get('/cash/csv', [ReportController::class, 'cashCsv'])->name('cash.csv');
+        Route::get('/purchases', [ReportController::class, 'purchases'])->name('purchases');
+        Route::get('/purchases/pdf', [ReportController::class, 'purchasesPdf'])->name('purchases.pdf');
+        Route::get('/purchases/csv', [ReportController::class, 'purchasesCsv'])->name('purchases.csv');
+        Route::get('/shifts', [ReportController::class, 'shifts'])->name('shifts');
+        Route::get('/shifts/pdf', [ReportController::class, 'shiftsPdf'])->name('shifts.pdf');
+        Route::get('/shifts/csv', [ReportController::class, 'shiftsCsv'])->name('shifts.csv');
     });
 
     Route::prefix('mobil-oil')->name('mobil-oil.')->group(function () {
@@ -59,6 +68,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('cash-transactions', CashTransactionController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('tank-dip-readings', TankDipReadingController::class)->only(['index', 'create', 'store']);
     Route::resource('tank-refills', TankRefillsController::class)->only(['index', 'create', 'store']);
@@ -76,7 +86,6 @@ Route::middleware('auth')->group(function () {
     Route::resource('dispensers', DispenserController::class);
     Route::resource('tanks', TankController::class);
 
-    Route::resource('products', ProductController::class)->only(['index', 'edit', 'update']);
     Route::resource('product-prices', ProductPriceController::class)->only(['index', 'create', 'store']);
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

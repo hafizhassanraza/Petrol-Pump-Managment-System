@@ -181,7 +181,7 @@
 </div>
 
 <div class="mb-3">
-    <span class="inventory-pill"><i class="bi bi-droplet"></i> Products <strong>{{ $products }}</strong></span>
+    <span class="inventory-pill"><i class="bi bi-droplet"></i> Fuels <strong>{{ $products }}</strong></span>
     <span class="inventory-pill"><i class="bi bi-database"></i> Tanks <strong>{{ $tanks }}</strong></span>
     <span class="inventory-pill"><i class="bi bi-hdd-stack"></i> Dispensers <strong>{{ $dispensers }}</strong></span>
     <span class="inventory-pill"><i class="bi bi-funnel"></i> Nozzles <strong>{{ $nozzles }}</strong></span>
@@ -209,8 +209,8 @@
         <div class="section-card">
             <h5><i class="bi bi-credit-card"></i> Payments (Period)</h5>
             <div class="chart-wrap sm"><canvas id="paymentChart"></canvas></div>
-            <div class="stat-row"><span>Cash Received</span><strong>PKR {{ number_format($periodCash, 2) }}</strong></div>
-            <div class="stat-row"><span>Online Received</span><strong>PKR {{ number_format($periodOnline, 2) }}</strong></div>
+            <div class="stat-row"><span>Cash Received</span><strong>PKR {{ money($periodCash) }}</strong></div>
+            <div class="stat-row"><span>Online Received</span><strong>PKR {{ money($periodOnline) }}</strong></div>
         </div>
     </div>
 </div>
@@ -225,7 +225,7 @@
     </div>
     <div class="col-lg-4 mb-3">
         <div class="section-card">
-            <h5><i class="bi bi-pie-chart"></i> Sales by Product</h5>
+            <h5><i class="bi bi-pie-chart"></i> Sales by Fuel</h5>
             <div class="chart-wrap sm"><canvas id="productChart"></canvas></div>
         </div>
     </div>
@@ -248,22 +248,24 @@
     <div class="col-lg-5 mb-3">
         <div class="section-card">
             <h5><i class="bi bi-clipboard-data"></i> Period Summary</h5>
-            <div class="stat-row"><span>Fuel Sales</span><strong class="text-profit">PKR {{ number_format($periodSales, 2) }}</strong></div>
+            <div class="stat-row"><span>Fuel Sales</span><strong class="text-profit">PKR {{ money($periodSales) }}</strong></div>
             @if(($periodMobilOilSales ?? 0) > 0)
-            <div class="stat-row"><span>Mobil Oil Sales</span><strong class="text-profit">PKR {{ number_format($periodMobilOilSales, 2) }}</strong></div>
+            <div class="stat-row"><span>Mobil Oil Sales</span><strong class="text-profit">PKR {{ money($periodMobilOilSales) }}</strong></div>
             @endif
-            <div class="stat-row"><span>Total Expenses</span><strong class="text-loss">PKR {{ number_format($periodExpense, 2) }}</strong></div>
-            <div class="stat-row"><span>Owner Fuel Usage</span><strong class="text-loss">PKR {{ number_format($periodOwnerFuel, 2) }}</strong></div>
-            <div class="stat-row"><span>Tank Refill Purchases</span><strong>PKR {{ number_format($periodRefills, 2) }}</strong></div>
+            <div class="stat-row"><span>Total Expenses</span><strong class="text-loss">PKR {{ money($periodExpense) }}</strong></div>
+            <div class="stat-row"><span>Owner Fuel Usage</span><strong class="text-loss">PKR {{ money($periodOwnerFuel) }}</strong></div>
+            <div class="stat-row"><span>Tank Refill Purchases</span><strong>PKR {{ money($periodRefills) }}</strong></div>
             <div class="stat-row"><span>Liters Sold</span><strong>{{ number_format($periodLiters, 2) }} L</strong></div>
+            <div class="stat-row"><span><i class="bi bi-cash-stack text-success"></i> Cash Received</span><strong>PKR {{ money($periodCash) }}</strong></div>
+            <div class="stat-row"><span><i class="bi bi-credit-card-2-front text-info"></i> Online Received</span><strong>PKR {{ money($periodOnline) }}</strong></div>
             <div class="stat-row" style="background:#f0fdf4;margin-top:8px;border-radius:8px;padding:12px;">
                 <span><strong>Net Profit</strong></span>
-                <strong class="{{ $periodNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($periodNet, 2) }}</strong>
+                <strong class="{{ $periodNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ money($periodNet) }}</strong>
             </div>
             <hr class="my-3">
             <h5><i class="bi bi-calendar-month"></i> Month to Date</h5>
-            <div class="stat-row"><span>MTD Net</span><strong class="{{ $mtdNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ number_format($mtdNet, 2) }}</strong></div>
-            <div class="stat-row"><span>MTD Refills</span><strong>PKR {{ number_format($mtdRefills, 2) }}</strong></div>
+            <div class="stat-row"><span>MTD Net</span><strong class="{{ $mtdNet >= 0 ? 'text-profit' : 'text-loss' }}">PKR {{ money($mtdNet) }}</strong></div>
+            <div class="stat-row"><span>MTD Refills</span><strong>PKR {{ money($mtdRefills) }}</strong></div>
             <hr class="my-3">
             <h5><i class="bi bi-trophy"></i> Top Employees</h5>
             @forelse($topEmployees as $emp)
@@ -285,16 +287,18 @@
             <h5><i class="bi bi-clock-history"></i> Recent Shifts</h5>
             <div class="table-responsive">
                 <table class="mini-table">
-                    <thead><tr><th>Employee</th><th>Amount</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Employee</th><th>Amount</th><th>Cash</th><th>Online</th><th>Status</th></tr></thead>
                     <tbody>
                         @forelse($recentShifts as $s)
                             <tr>
                                 <td>{{ $s->employee->name ?? 'N/A' }}</td>
                                 <td>{{ number_format($s->total_amount, 0) }}</td>
+                                <td>{{ $s->status === 'active' ? '—' : number_format($s->cash_received, 0) }}</td>
+                                <td>{{ $s->status === 'active' ? '—' : number_format($s->online_received, 0) }}</td>
                                 <td><span class="badge-ok">{{ $s->status }}</span></td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="text-muted">No shifts recorded.</td></tr>
+                            <tr><td colspan="5" class="text-muted">No shifts recorded.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

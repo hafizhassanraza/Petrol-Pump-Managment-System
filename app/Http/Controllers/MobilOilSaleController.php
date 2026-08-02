@@ -17,16 +17,16 @@ class MobilOilSaleController extends Controller
     public function index(Request $request)
     {
         $range = ReportRange::fromRequest($request);
-        $from = $range['from'] . ' 00:00:00';
-        $to = $range['to'] . ' 23:59:59';
+        $fromAt = $range['fromAt'];
+        $toAt = $range['toAt'];
 
         $sales = MobilOilSale::with(['product', 'employee'])
-            ->whereBetween('sold_datetime', [$from, $to])
+            ->whereBetween('sold_datetime', [$fromAt, $toAt])
             ->latest('sold_datetime')
             ->paginate(15)
             ->withQueryString();
 
-        $totalAmount = (float) MobilOilSale::whereBetween('sold_datetime', [$from, $to])->sum('total_amount');
+        $totalAmount = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('total_amount');
 
         return view('mobil_oil.sales.index', array_merge($range, compact('sales', 'totalAmount')));
     }
@@ -94,6 +94,6 @@ class MobilOilSaleController extends Controller
 
         return redirect()
             ->route('mobil-oil.sales.index')
-            ->with('success', 'Mobil Oil sale recorded. Amount: PKR ' . number_format($totalAmount, 2));
+            ->with('success', 'Mobil Oil sale recorded. Amount: PKR ' . money($totalAmount));
     }
 }

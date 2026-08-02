@@ -15,6 +15,7 @@ class ProductPriceService
         return ProductPrice::where('product_id', $productId)
             ->where('effective_from', '<=', $at)
             ->orderByDesc('effective_from')
+            ->orderByDesc('id')
             ->first();
     }
 

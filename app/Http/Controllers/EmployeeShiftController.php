@@ -203,7 +203,7 @@ class EmployeeShiftController extends Controller
         }
 
         return redirect()->route('employee-shifts.index')
-            ->with('success', 'Shift closed. Amount: PKR ' . number_format($metrics['total_amount'], 2) . ' (' . number_format($metrics['total_liters'], 2) . ' L)');
+            ->with('success', 'Shift closed. Amount: PKR ' . money($metrics['total_amount']) . ' (' . number_format($metrics['total_liters'], 2) . ' L)');
     }
 
     public function verify($id)
@@ -329,7 +329,7 @@ class EmployeeShiftController extends Controller
 
         return redirect()->route('employee-shifts.index')
             ->with('success', 'Shift updated and recalculated. Amount: PKR ' .
-                number_format($metrics['total_amount'], 2) . ' (' . number_format($metrics['total_liters'], 2) . ' L)');
+                money($metrics['total_amount']) . ' (' . number_format($metrics['total_liters'], 2) . ' L)');
     }
 
     /**

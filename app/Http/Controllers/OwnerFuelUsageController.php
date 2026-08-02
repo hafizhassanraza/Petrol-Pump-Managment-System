@@ -83,7 +83,7 @@ class OwnerFuelUsageController extends Controller
         }
 
         return redirect()->route('owner-fuel-usages.index')
-            ->with('success', 'Owner fuel usage recorded (PKR ' . number_format($metrics['total_amount'], 2) . ').');
+            ->with('success', 'Owner fuel usage recorded (PKR ' . money($metrics['total_amount']) . ').');
     }
 
     public function edit(OwnerFuelUsage $owner_fuel_usage)
@@ -161,7 +161,7 @@ class OwnerFuelUsageController extends Controller
         }
 
         return redirect()->route('owner-fuel-usages.index')
-            ->with('success', 'Owner fuel usage updated (PKR ' . number_format($metrics['total_amount'], 2) . ').');
+            ->with('success', 'Owner fuel usage updated (PKR ' . money($metrics['total_amount']) . ').');
     }
 
     /**

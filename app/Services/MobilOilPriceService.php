@@ -15,6 +15,7 @@ class MobilOilPriceService
         return MobilOilPrice::where('mobil_oil_product_id', $productId)
             ->where('effective_from', '<=', $at)
             ->orderByDesc('effective_from')
+            ->orderByDesc('id')
             ->first();
     }
 
