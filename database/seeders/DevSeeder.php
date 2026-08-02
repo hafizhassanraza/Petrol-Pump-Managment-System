@@ -27,10 +27,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
-class FuelStationDemoSeeder extends Seeder
+class DevSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(AdminUserSeeder::class);
+
         $this->wipeStationLayout();
 
         $adminId = $this->adminUserId();
@@ -51,7 +53,7 @@ class FuelStationDemoSeeder extends Seeder
             $shiftId
         );
 
-        $this->command?->info('Demo data seeded: layout + ~14 days of sales, purchases, expenses, and attendance.');
+        $this->command?->info('Dev seeders done: layout + ~14 days of sales, purchases, expenses, and attendance.');
     }
 
     private function seedMobilOil(int $adminId): void
@@ -123,7 +125,7 @@ class FuelStationDemoSeeder extends Seeder
 
         if (! $admin) {
             throw new RuntimeException(
-                'Admin user not found. Run AdminUserSeeder before FuelStationDemoSeeder.'
+                'Admin user not found. Run AdminUserSeeder before DevSeeder.'
             );
         }
 
