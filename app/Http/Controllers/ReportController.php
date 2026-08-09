@@ -53,7 +53,7 @@ class ReportController extends Controller
         $query = EmployeeShift::with('employee', 'nozzle.product');
 
         if ($range['from'] && $range['to']) {
-            $query->whereBetween('assigned_date', [$range['from'], $range['to']]);
+            $query->closedBetween($range['from'], $range['to']);
         }
 
         $shifts = $query->latest()->get();
@@ -350,9 +350,9 @@ class ReportController extends Controller
         $fromAt = $range['fromAt'];
         $toAt = $range['toAt'];
 
-        $fuelSales = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_amount');
-        $salesLiters = (float) EmployeeShift::whereBetween('assigned_date', [$from, $to])->sum('total_liters');
-        $salesCount = EmployeeShift::whereBetween('assigned_date', [$from, $to])->count();
+        $fuelSales = (float) EmployeeShift::closedBetween($from, $to)->sum('total_amount');
+        $salesLiters = (float) EmployeeShift::closedBetween($from, $to)->sum('total_liters');
+        $salesCount = EmployeeShift::closedBetween($from, $to)->count();
 
         $mobilOilSales = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('total_amount');
         $mobilOilSalesQty = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('quantity');
@@ -1289,8 +1289,8 @@ class ReportController extends Controller
 
         $shifts = EmployeeShift::query()
             ->with(['employee', 'nozzle.product'])
-            ->when($range['from'] && $range['to'], fn ($q) => $q->whereBetween('assigned_date', [$range['from'], $range['to']]))
-            ->orderByDesc('assigned_date')
+            ->when($range['from'] && $range['to'], fn ($q) => $q->closedBetween($range['from'], $range['to']))
+            ->orderByDesc('closed_date')
             ->orderByDesc('id')
             ->get();
 
@@ -1374,13 +1374,13 @@ class ReportController extends Controller
 
             foreach ($data['shifts'] as $s) {
                 $isOpen = $s->status === 'active';
-                $dateKey = Carbon::parse($s->assigned_date)->format('Y-m-d');
+                $dateKey = Carbon::parse($s->closed_date ?? $s->assigned_date)->format('Y-m-d');
                 $closing = $data['closingByDay']->get($dateKey, [
                     'petrol' => ['stock_closing' => 0.0],
                     'diesel' => ['stock_closing' => 0.0],
                 ]);
                 fputcsv($f, [
-                    report_date($s->assigned_date),
+                    report_date($s->closed_date ?? $s->assigned_date),
                     $s->employee->name ?? '',
                     $s->nozzle->nozzle_number ?? '',
                     $s->nozzle->product->name ?? '',

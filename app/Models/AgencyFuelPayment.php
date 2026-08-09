@@ -5,12 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Expense extends Model
+class AgencyFuelPayment extends Model
 {
     protected $fillable = [
-        'expense_type',
+        'agency_fuel_credit_id',
         'amount',
-        'expense_date',
+        'payment_method',
+        'payment_date',
         'notes',
         'created_by',
     ];
@@ -19,12 +20,12 @@ class Expense extends Model
     {
         return [
             'amount' => 'decimal:2',
-            'expense_date' => 'date',
+            'payment_date' => 'date',
         ];
     }
 
-    public function creator(): BelongsTo
+    public function credit(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(AgencyFuelCredit::class, 'agency_fuel_credit_id');
     }
 }

@@ -23,7 +23,7 @@
                     <tr>
                         <td><strong>{{ $e->expense_type }}</strong></td>
                         <td>{{ money($e->amount) }}</td>
-                        <td>{{ \Carbon\Carbon::parse($e->expense_date)->format('d M Y') }}</td>
+                        <td>{{ $e->expense_date->format('d M Y') }}</td>
                         <td>{{ $e->notes ?: '—' }}</td>
                         <td>
                             <a href="{{ route('expenses.edit', $e) }}" class="btn btn-primary btn-sm">Edit</a>

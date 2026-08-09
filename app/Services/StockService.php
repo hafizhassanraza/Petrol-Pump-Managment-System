@@ -22,7 +22,7 @@ class StockService
     public static function decrement(Tank $tank, float $liters): void
     {
         if ($liters <= 0) {
-            throw new RuntimeException('Liters must be greater than zero.');
+            return;
         }
 
         if (! self::canDecrement($tank, $liters)) {
@@ -37,7 +37,7 @@ class StockService
     public static function increment(Tank $tank, float $liters): void
     {
         if ($liters <= 0) {
-            throw new RuntimeException('Liters must be greater than zero.');
+            return;
         }
 
         if (! self::canIncrement($tank, $liters)) {

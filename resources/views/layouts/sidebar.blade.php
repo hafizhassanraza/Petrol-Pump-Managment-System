@@ -36,6 +36,9 @@
     <a href="{{ route('owner-fuel-usages.index') }}" class="{{ request()->routeIs('owner-fuel-usages.*') ? 'active' : '' }}">
         <i class="bi bi-person-badge"></i> Owner Fuel Usage
     </a>
+    <a href="{{ route('agency-customers.index') }}" class="{{ request()->routeIs('agency-customers.*') ? 'active' : '' }}">
+        <i class="bi bi-building"></i> Agency Customers
+    </a>
     <a href="{{ route('expenses.index') }}" class="{{ request()->routeIs('expenses.*') ? 'active' : '' }}">
         <i class="bi bi-cash-stack"></i> Expenses
     </a>

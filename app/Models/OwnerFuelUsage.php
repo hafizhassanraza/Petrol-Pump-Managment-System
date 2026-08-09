@@ -9,6 +9,7 @@ class OwnerFuelUsage extends Model
     protected $fillable = [
         'product_id',
         'nozzle_id',
+        'employee_shift_id',
         'employee_id',
         'vehicle_no',
         'person_name',
@@ -49,9 +50,18 @@ class OwnerFuelUsage extends Model
         return $this->belongsTo(Nozzle::class);
     }
 
+    public function employeeShift()
+    {
+        return $this->belongsTo(EmployeeShift::class);
+    }
 
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function isLinkedToShift(): bool
+    {
+        return $this->employee_shift_id !== null;
     }
 }

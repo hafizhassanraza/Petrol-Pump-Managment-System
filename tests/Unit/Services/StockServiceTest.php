@@ -59,13 +59,13 @@ class StockServiceTest extends TestCase
         StockService::decrement($tank, 100);
     }
 
-    public function test_decrement_throws_for_zero_liters(): void
+    public function test_decrement_is_noop_for_zero_liters(): void
     {
         $tank = $this->makeTank(1000);
 
-        $this->expectException(RuntimeException::class);
-
         StockService::decrement($tank, 0);
+
+        $this->assertEquals(1000, (float) $tank->fresh()->current_stock_liters);
     }
 
     public function test_can_increment_within_capacity(): void

@@ -98,14 +98,14 @@
                 @foreach($shifts as $s)
                     @php
                         $isOpen = $s->status === 'active';
-                        $dateKey = \Carbon\Carbon::parse($s->assigned_date)->format('Y-m-d');
+                        $dateKey = \Carbon\Carbon::parse($s->closed_date ?? $s->assigned_date)->format('Y-m-d');
                         $closing = $closingByDay->get($dateKey, [
                             'petrol' => ['stock_closing' => 0.0],
                             'diesel' => ['stock_closing' => 0.0],
                         ]);
                     @endphp
                     <tr>
-                        <td>{{ report_date($s->assigned_date) }}</td>
+                        <td>{{ report_date($s->closed_date ?? $s->assigned_date) }}</td>
                         <td>{{ $s->employee->name ?? '—' }}</td>
                         <td>{{ $s->nozzle->nozzle_number ?? '—' }}</td>
                         <td>{{ $s->nozzle->product->name ?? '—' }}</td>

@@ -41,17 +41,15 @@ class DashboardController extends Controller
             'dispensers' => Dispenser::count(),
             'nozzles' => Nozzle::count(),
             'employees' => Employee::count(),
-            'activeShifts' => EmployeeShift::where('status', 'active')
-                ->where('assigned_date', $businessDateStr)
-                ->count(),
+            'activeShifts' => EmployeeShift::where('status', 'active')->count(),
         ];
 
-        $shiftQuery = fn () => EmployeeShift::whereBetween('assigned_date', [$from, $to])
+        $shiftQuery = fn () => EmployeeShift::closedBetween($from, $to)
             ->whereIn('status', ['submitted', 'verified']);
 
         $periodSales = (float) $shiftQuery()->sum('total_amount');
         $periodLiters = (float) $shiftQuery()->sum('total_liters');
-        $periodShiftCount = EmployeeShift::whereBetween('assigned_date', [$from, $to])->count();
+        $periodShiftCount = EmployeeShift::closedBetween($from, $to)->count();
         $periodCash = (float) $shiftQuery()->sum('cash_received');
         $periodOnline = (float) $shiftQuery()->sum('online_received');
 
@@ -61,10 +59,10 @@ class DashboardController extends Controller
         $periodMobilOilSales = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('total_amount');
         $periodNet = $periodSales + $periodMobilOilSales - $periodExpense - $periodOwnerFuel;
 
-        $mtdSales = (float) EmployeeShift::whereBetween('assigned_date', [$monthStart, $businessDateStr])
+        $mtdSales = (float) EmployeeShift::closedBetween($monthStart, $businessDateStr)
             ->whereIn('status', ['submitted', 'verified'])
             ->sum('total_amount');
-        $mtdLiters = (float) EmployeeShift::whereBetween('assigned_date', [$monthStart, $businessDateStr])
+        $mtdLiters = (float) EmployeeShift::closedBetween($monthStart, $businessDateStr)
             ->sum('total_liters');
         $mtdExpense = (float) Expense::whereBetween('expense_date', [$monthStart, $businessDateStr])->sum('amount');
         [$monthFromAt, $monthToAt] = BusinessDayService::businessDayBounds($businessDateStr);
@@ -110,8 +108,8 @@ class DashboardController extends Controller
         $totalTankCapacity = $tankStock->sum('capacity');
 
         $recentShifts = EmployeeShift::with(['employee', 'nozzle'])
-            ->whereBetween('assigned_date', [$from, $to])
-            ->latest('assigned_date')
+            ->closedBetween($from, $to)
+            ->latest('closed_date')
             ->latest('id')
             ->take(6)
             ->get();
@@ -194,11 +192,11 @@ class DashboardController extends Controller
 
             [$dayFrom, $dayTo] = BusinessDayService::businessDayBounds($dateStr);
 
-            $daySales = (float) EmployeeShift::where('assigned_date', $dateStr)
+            $daySales = (float) EmployeeShift::closedOn($dateStr)
                 ->whereIn('status', ['submitted', 'verified'])
                 ->sum('total_amount');
             $dayMobilOil = (float) MobilOilSale::whereBetween('sold_datetime', [$dayFrom, $dayTo])->sum('total_amount');
-            $dayLiters = (float) EmployeeShift::where('assigned_date', $dateStr)->sum('total_liters');
+            $dayLiters = (float) EmployeeShift::closedOn($dateStr)->sum('total_liters');
             $dayExpense = (float) Expense::whereDate('expense_date', $dateStr)->sum('amount');
             $dayOwnerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$dayFrom, $dayTo])->sum('total_amount');
 
@@ -218,7 +216,7 @@ class DashboardController extends Controller
     {
         $ids = FuelProducts::ids();
         $shifts = EmployeeShift::with('nozzle')
-            ->whereBetween('assigned_date', [$from, $to])
+            ->closedBetween($from, $to)
             ->whereIn('status', ['submitted', 'verified'])
             ->get();
 
@@ -239,7 +237,7 @@ class DashboardController extends Controller
     private function buildTopEmployees(string $from, string $to): Collection
     {
         return EmployeeShift::with('employee')
-            ->whereBetween('assigned_date', [$from, $to])
+            ->closedBetween($from, $to)
             ->whereIn('status', ['submitted', 'verified'])
             ->get()
             ->groupBy('employee_id')

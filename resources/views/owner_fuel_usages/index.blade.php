@@ -4,9 +4,6 @@
 @include('partials.period-filter')
 
 <div class="page-card">
-    <div class="list-toolbar">
-        <a href="{{ route('owner-fuel-usages.create') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add Usage</a>
-    </div>
     <div class="table-container">
         <table class="excel-table">
             <thead>
@@ -17,8 +14,8 @@
                     <th>Rate</th>
                     <th>Total</th>
                     <th>Vehicle</th>
+                    <th>Shift</th>
                     <th>Date</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -30,13 +27,21 @@
                         <td>{{ number_format($u->price_per_liter, 2) }}</td>
                         <td>{{ money($u->total_amount) }}</td>
                         <td>{{ $u->vehicle_no ?? '—' }}</td>
-                        <td>{{ $u->usage_datetime?->format('d M Y H:i') ?? '—' }}</td>
                         <td>
-                            <a href="{{ route('owner-fuel-usages.edit', $u) }}" class="btn btn-primary btn-sm">Edit</a>
+                            @if($u->employee_shift_id)
+                                <span class="badge bg-secondary">Shift #{{ $u->employee_shift_id }}</span>
+                            @else
+                                —
+                            @endif
                         </td>
+                        <td>{{ $u->usage_datetime?->format('d M Y H:i') ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="text-center text-muted py-4">No records in this period.</td></tr>
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            No records in this period. Add owner fuel when closing a shift.
+                        </td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>

@@ -25,7 +25,7 @@ class ReportRange
             $from = now()->subDays(30)->format('Y-m-d');
             $to = BusinessDayService::currentBusinessDate()->toDateString();
         } elseif ($request->from && $request->to) {
-            // custom calendar range (by assigned_date / expense_date)
+            // custom calendar range (by closed_date / expense_date / event datetime)
         } else {
             $businessDate = BusinessDayService::currentBusinessDate();
             $from = $businessDate->toDateString();

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\FuelStation;
 
+use App\Models\EmployeeShift;
+use App\Models\OwnerFuelUsage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreatesFuelStationFixtures;
 use Tests\TestCase;
@@ -11,99 +13,55 @@ class OwnerFuelUsageTest extends TestCase
     use CreatesFuelStationFixtures;
     use RefreshDatabase;
 
-    public function test_owner_usage_decrements_stock_and_updates_meter(): void
+    public function test_owner_fuel_is_created_from_shift_close(): void
     {
-        $graph = $this->createFuelStationGraph(tankStock: 2000, meterReading: 500);
-
-        $response = $this->actingAs($graph['user'])->post(route('owner-fuel-usages.store'), [
-            'nozzle_id' => $graph['nozzle']->id,
-            'liters' => 25,
-            'person_name' => 'Owner',
-        ]);
-
-        $response->assertRedirect(route('owner-fuel-usages.index'));
-        $response->assertSessionHas('success');
-        $this->assertEquals(1975, (float) $graph['tank']->fresh()->current_stock_liters);
-        $this->assertEquals(525, (float) $graph['nozzle']->fresh()->current_meter_reading);
-    }
-
-    public function test_owner_usage_fails_without_price(): void
-    {
-        $user = $this->createOwner();
-        $product = \App\Models\Product::create(['name' => 'Unpriced', 'unit' => 'liter', 'status' => true]);
-        $tank = \App\Models\Tank::create([
-            'product_id' => $product->id,
-            'tank_number' => 'T-X',
-            'capacity_liters' => 5000,
-            'current_stock_liters' => 1000,
-            'minimum_level' => 100,
-            'status' => true,
-        ]);
-        $dispenser = \App\Models\Dispenser::create([
-            'dispenser_code' => 'D-X',
-            'status' => true,
-        ]);
-        $nozzle = \App\Models\Nozzle::create([
-            'dispenser_id' => $dispenser->id,
-            'tank_id' => $tank->id,
-            'product_id' => $product->id,
-            'nozzle_number' => 'N-X',
-            'current_meter_reading' => 0,
-            'status' => true,
-        ]);
-
-        $response = $this->actingAs($user)->post(route('owner-fuel-usages.store'), [
-            'nozzle_id' => $nozzle->id,
-            'liters' => 10,
-        ]);
-
-        $response->assertSessionHas('error');
-    }
-
-    public function test_index_shows_usage_recorded_in_current_business_day(): void
-    {
-        $graph = $this->createFuelStationGraph(tankStock: 2000, meterReading: 500);
-
-        $this->actingAs($graph['user'])->post(route('owner-fuel-usages.store'), [
-            'nozzle_id' => $graph['nozzle']->id,
-            'liters' => 25,
-            'person_name' => 'Owner',
-        ])->assertRedirect(route('owner-fuel-usages.index'));
-
-        $response = $this->actingAs($graph['user'])->get(route('owner-fuel-usages.index', ['filter' => 'today']));
-
-        $response->assertOk();
-        $response->assertSee('Owner');
-        $response->assertSee('25.00');
-    }
-
-    public function test_update_recalculates_stock_meter_and_amount(): void
-    {
+        $this->travelToBusinessHours();
         $graph = $this->createFuelStationGraph(tankStock: 2000, meterReading: 500, pricePerLiter: 300);
 
-        $this->actingAs($graph['user'])->post(route('owner-fuel-usages.store'), [
+        $this->actingAs($graph['user'])->post(route('employee-shifts.store'), [
+            'employee_id' => $graph['employee']->id,
             'nozzle_id' => $graph['nozzle']->id,
-            'liters' => 25,
-            'person_name' => 'Owner',
-        ]);
+            'opening_reading' => 500,
+        ])->assertRedirect();
 
-        $usage = \App\Models\OwnerFuelUsage::first();
+        $shift = EmployeeShift::first();
 
-        $response = $this->actingAs($graph['user'])->put(route('owner-fuel-usages.update', $usage), [
-            'nozzle_id' => $graph['nozzle']->id,
-            'liters' => 40,
-            'person_name' => 'Owner Updated',
-        ]);
+        $this->actingAs($graph['user'])->post(route('employee-shifts.close', $shift->id), [
+            'closing_reading' => 560,
+            'testing_liters' => 0,
+            'cash_received' => 15000,
+            'online_received' => 0,
+            'has_owner_fuel' => 1,
+            'owner_fuel_liters' => 10,
+            'owner_person_name' => 'Owner Car',
+            'owner_vehicle_no' => 'ABC-123',
+        ])->assertRedirect(route('employee-shifts.index'));
 
-        $response->assertRedirect(route('owner-fuel-usages.index'));
-        $response->assertSessionHas('success');
+        $shift->refresh();
+        $usage = OwnerFuelUsage::first();
 
-        $usage->refresh();
-        $this->assertEquals(40, (float) $usage->liters);
-        $this->assertEquals('Owner Updated', $usage->person_name);
-        $this->assertEquals(12000, (float) $usage->total_amount);
+        $this->assertEquals(50.0, (float) $shift->total_liters);
+        $this->assertEquals(15000.0, (float) $shift->total_amount);
+        $this->assertNotNull($usage);
+        $this->assertEquals($shift->id, $usage->employee_shift_id);
+        $this->assertEquals(10.0, (float) $usage->liters);
+        $this->assertEquals(1940.0, (float) $graph['tank']->fresh()->current_stock_liters);
+        $this->assertEquals(560.0, (float) $graph['nozzle']->fresh()->current_meter_reading);
+    }
 
-        $this->assertEquals(1960, (float) $graph['tank']->fresh()->current_stock_liters);
-        $this->assertEquals(540, (float) $graph['nozzle']->fresh()->current_meter_reading);
+    public function test_owner_fuel_edit_routes_removed(): void
+    {
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('owner-fuel-usages.create'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('owner-fuel-usages.store'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('owner-fuel-usages.edit'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('owner-fuel-usages.update'));
+
+        $graph = $this->createFuelStationGraph();
+
+        $this->actingAs($graph['user'])
+            ->get(route('owner-fuel-usages.index'))
+            ->assertOk()
+            ->assertDontSee('Add Usage')
+            ->assertDontSee('>Edit</a>', false);
     }
 }

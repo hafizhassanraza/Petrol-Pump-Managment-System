@@ -150,7 +150,7 @@ class DashboardAndReportsTest extends TestCase
         ])->assertRedirect();
 
         $this->actingAs($graph['user'])->post(route('expenses.store'), [
-            'expense_type' => 'Utilities',
+            'expense_type' => 'Electricity Bill',
             'amount' => 1200,
             'expense_date' => $businessDate,
             'notes' => 'Electricity',

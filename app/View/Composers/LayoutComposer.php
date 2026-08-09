@@ -62,10 +62,12 @@ class LayoutComposer
                 'tank-dip-readings.create' => 'Add Dip Reading',
                 default => 'Tank Dip Readings',
             },
-            str_starts_with($name, 'owner-fuel-usages.') => match ($name) {
-                'owner-fuel-usages.create' => 'Owner Fuel Usage',
-                'owner-fuel-usages.edit' => 'Edit Owner Fuel Usage',
-                default => 'Owner Fuel Usage',
+            str_starts_with($name, 'owner-fuel-usages.') => 'Owner Fuel Usage',
+            str_starts_with($name, 'agency-customers.') => match ($name) {
+                'agency-customers.create' => 'Add Agency Customer',
+                'agency-customers.edit' => 'Edit Agency Customer',
+                'agency-customers.show' => 'Agency Customer Credits',
+                default => 'Agency Customers',
             },
             str_starts_with($name, 'expenses.') => match ($name) {
                 'expenses.create' => 'Add Expense',

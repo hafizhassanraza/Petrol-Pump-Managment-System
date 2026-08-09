@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\Expense;
+use App\Services\BusinessDayService;
 use App\Support\ReportRange;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class ExpensesController extends Controller
 {
@@ -14,7 +17,8 @@ class ExpensesController extends Controller
     {
         $range = ReportRange::fromRequest($request);
 
-        $expenses = Expense::whereBetween('expense_date', [$range['from'], $range['to']])
+        $expenses = Expense::whereDate('expense_date', '>=', $range['from'])
+            ->whereDate('expense_date', '<=', $range['to'])
             ->latest('expense_date')
             ->paginate(15)
             ->withQueryString();
@@ -26,25 +30,19 @@ class ExpensesController extends Controller
     {
         return view('expenses.create', [
             'expenseTypes' => $this->expenseTypes(),
+            'defaultDate' => BusinessDayService::currentBusinessDate()->toDateString(),
+            'salaryTotal' => $this->salaryTotal(),
         ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate($this->rules());
+        $data = $this->validated($request);
 
-        $amount = $this->resolveAmount($request);
-
-        Expense::create([
-            'expense_type' => $request->expense_type,
-            'amount' => $amount,
-            'expense_date' => $request->expense_date,
-            'notes' => $request->notes,
-            'created_by' => Auth::id() ?? 1,
-        ]);
+        Expense::create($data + ['created_by' => Auth::id() ?? 1]);
 
         return redirect()->route('expenses.index')
-            ->with('success', 'Expense recorded successfully.');
+            ->with('success', 'Expense recorded successfully (PKR '.money($data['amount']).').');
     }
 
     public function edit(Expense $expense)
@@ -52,24 +50,18 @@ class ExpensesController extends Controller
         return view('expenses.edit', [
             'expense' => $expense,
             'expenseTypes' => $this->expenseTypes(),
+            'salaryTotal' => $this->salaryTotal(),
         ]);
     }
 
     public function update(Request $request, Expense $expense)
     {
-        $request->validate($this->rules());
+        $data = $this->validated($request);
 
-        $amount = $this->resolveAmount($request);
-
-        $expense->update([
-            'expense_type' => $request->expense_type,
-            'amount' => $amount,
-            'expense_date' => $request->expense_date,
-            'notes' => $request->notes,
-        ]);
+        $expense->update($data);
 
         return redirect()->route('expenses.index')
-            ->with('success', 'Expense updated (PKR ' . money($amount) . ').');
+            ->with('success', 'Expense updated (PKR '.money($data['amount']).').');
     }
 
     /**
@@ -78,38 +70,42 @@ class ExpensesController extends Controller
     private function expenseTypes(): array
     {
         return [
-            'Salary',
             'Electricity Bill',
             'Maintenance',
             'Repair',
+            'Salary',
             'Miscellaneous',
         ];
     }
 
     /**
-     * @return array<string, string>
+     * @return array{expense_type: string, amount: float, expense_date: string, notes: ?string}
      */
-    private function rules(): array
+    private function validated(Request $request): array
     {
-        return [
-            'expense_type' => 'required|string|max:100',
-            'amount' => 'required|numeric|min:0.01',
+        $data = $request->validate([
+            'expense_type' => ['required', 'string', 'max:100', Rule::in($this->expenseTypes())],
+            'amount' => [
+                Rule::requiredIf(fn () => $request->input('expense_type') !== 'Salary'),
+                'nullable',
+                'numeric',
+                'min:0.01',
+            ],
             'expense_date' => 'required|date',
             'notes' => 'nullable|string',
-        ];
+        ]);
+
+        $data['amount'] = $data['expense_type'] === 'Salary'
+            ? $this->salaryTotal()
+            : round((float) $data['amount'], 2);
+
+        $data['expense_date'] = Carbon::parse($data['expense_date'])->toDateString();
+
+        return $data;
     }
 
     private function salaryTotal(): float
     {
         return round((float) Employee::where('status', 1)->sum('salary'), 2);
-    }
-
-    private function resolveAmount(Request $request): float
-    {
-        if ($request->expense_type === 'Salary') {
-            return $this->salaryTotal();
-        }
-
-        return round((float) $request->amount, 2);
     }
 }

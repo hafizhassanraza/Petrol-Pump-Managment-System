@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
  * Closing = Opening + Sales Cash + Cash In − Cash Out − Expenses
  * Sales Bank/Online is shown for reference and does not affect drawer balance.
  * Only CashTransaction rows with payment_method = cash affect the drawer.
+ * Fuel sales are attributed by shift closed_date.
  */
 class DailyCashLedger
 {
@@ -50,8 +51,8 @@ class DailyCashLedger
 
         $shifts = EmployeeShift::query()
             ->whereIn('status', ['submitted', 'verified'])
-            ->where('assigned_date', '<=', $to)
-            ->get(['assigned_date', 'cash_received', 'online_received']);
+            ->closedOnOrBefore($to)
+            ->get(['closed_date', 'cash_received', 'online_received']);
 
         $mobilSales = MobilOilSale::query()
             ->where('sold_datetime', '<=', $rangeToAt)
@@ -59,11 +60,11 @@ class DailyCashLedger
 
         $transactions = CashTransaction::query()
             ->where('payment_method', 'cash')
-            ->where('transaction_date', '<=', $to)
+            ->whereDate('transaction_date', '<=', $to)
             ->get(['type', 'amount', 'transaction_date']);
 
         $expenses = Expense::query()
-            ->where('expense_date', '<=', $to)
+            ->whereDate('expense_date', '<=', $to)
             ->get(['amount', 'expense_date']);
 
         $opening = self::balanceBefore($from, $shifts, $mobilSales, $transactions, $expenses, $rangeFromAt);
@@ -78,10 +79,10 @@ class DailyCashLedger
             [$dayFrom, $dayTo] = BusinessDayService::businessDayBounds($date);
 
             $salesCash = (float) $shifts
-                ->filter(fn ($s) => Carbon::parse($s->assigned_date)->toDateString() === $date)
+                ->filter(fn ($s) => Carbon::parse($s->closed_date)->toDateString() === $date)
                 ->sum('cash_received');
             $salesBank = (float) $shifts
-                ->filter(fn ($s) => Carbon::parse($s->assigned_date)->toDateString() === $date)
+                ->filter(fn ($s) => Carbon::parse($s->closed_date)->toDateString() === $date)
                 ->sum('online_received');
 
             $dayMobil = $mobilSales->filter(
@@ -143,7 +144,7 @@ class DailyCashLedger
         Carbon $rangeFromAt
     ): float {
         $salesCash = (float) $shifts
-            ->filter(fn ($s) => Carbon::parse($s->assigned_date)->toDateString() < $from)
+            ->filter(fn ($s) => Carbon::parse($s->closed_date)->toDateString() < $from)
             ->sum('cash_received');
 
         $salesCash += (float) $mobilSales

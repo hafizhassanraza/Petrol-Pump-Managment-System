@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AgencyFuelCredit;
 use App\Models\EmployeeShift;
 use App\Models\OwnerFuelUsage;
 use App\Models\Product;
@@ -39,12 +40,12 @@ class DailyFuelMetrics
         [, $maxToAt] = BusinessDayService::businessDayBounds($maxDate);
 
         $shifts = EmployeeShift::query()
-            ->whereBetween('assigned_date', [$minDate, $maxDate])
+            ->closedBetween($minDate, $maxDate)
             ->whereIn('status', ['submitted', 'verified'])
-            ->get(['assigned_date', 'total_liters', 'total_amount']);
+            ->get(['closed_date', 'total_liters', 'total_amount']);
 
         $shiftsByDate = $shifts->groupBy(
-            fn ($s) => Carbon::parse($s->assigned_date)->format('Y-m-d')
+            fn ($s) => Carbon::parse($s->closed_date)->format('Y-m-d')
         );
 
         $refills = TankRefill::query()
@@ -56,13 +57,23 @@ class DailyFuelMetrics
             ->where('usage_datetime', '<=', $maxToAt)
             ->get(['liters', 'usage_datetime']);
 
+        $agencyCredits = AgencyFuelCredit::query()
+            ->where('credit_datetime', '<=', $maxToAt)
+            ->get(['liters', 'total_amount', 'credit_datetime']);
+
+        $agencyByDate = $agencyCredits->groupBy(
+            fn ($c) => BusinessDayService::toBusinessDate($c->credit_datetime)->toDateString()
+        );
+
         $futureShifts = EmployeeShift::query()
-            ->where('assigned_date', '>', $maxDate)
+            ->closedAfter($maxDate)
             ->whereIn('status', ['submitted', 'verified'])
             ->get(['total_liters']);
-
         $futureOwner = OwnerFuelUsage::query()
             ->where('usage_datetime', '>', $maxToAt)
+            ->get(['liters']);
+        $futureAgency = AgencyFuelCredit::query()
+            ->where('credit_datetime', '>', $maxToAt)
             ->get(['liters']);
 
         $futureRefills = TankRefill::query()
@@ -73,18 +84,22 @@ class DailyFuelMetrics
 
         return $dates->mapWithKeys(function (string $date) use (
             $shiftsByDate,
+            $agencyByDate,
             $refills,
             $ownerUsages,
+            $agencyCredits,
             $futureShifts,
             $futureOwner,
+            $futureAgency,
             $futureRefills,
             $currentTotalStock
         ) {
             [$dayFrom, $dayTo] = BusinessDayService::businessDayBounds($date);
 
             $dayShifts = $shiftsByDate->get($date, collect());
-            $liters = (float) $dayShifts->sum('total_liters');
-            $amount = (float) $dayShifts->sum('total_amount');
+            $dayAgency = $agencyByDate->get($date, collect());
+            $liters = (float) $dayShifts->sum('total_liters') + (float) $dayAgency->sum('liters');
+            $amount = (float) $dayShifts->sum('total_amount') + (float) $dayAgency->sum('total_amount');
 
             $saleRate = $liters > 0 ? round($amount / $liters, 2) : null;
 
@@ -109,8 +124,10 @@ class DailyFuelMetrics
                 $refills,
                 $shiftsByDate,
                 $ownerUsages,
+                $agencyCredits,
                 $futureShifts,
                 $futureOwner,
+                $futureAgency,
                 $futureRefills
             );
 
@@ -158,7 +175,7 @@ class DailyFuelMetrics
 
         $shifts = EmployeeShift::query()
             ->with(['nozzle.product'])
-            ->whereBetween('assigned_date', [$from, $to])
+            ->closedBetween($from, $to)
             ->whereIn('status', ['submitted', 'verified'])
             ->get();
 
@@ -169,10 +186,9 @@ class DailyFuelMetrics
 
         $futureShifts = EmployeeShift::query()
             ->with('nozzle')
-            ->where('assigned_date', '>', $to)
+            ->closedAfter($to)
             ->whereIn('status', ['submitted', 'verified'])
             ->get(['nozzle_id', 'total_liters']);
-
         $futureOwner = OwnerFuelUsage::query()
             ->where('usage_datetime', '>', $toAt)
             ->get(['product_id', 'liters']);
@@ -297,7 +313,7 @@ class DailyFuelMetrics
 
         $shifts = EmployeeShift::query()
             ->with(['nozzle.product'])
-            ->whereBetween('assigned_date', [$from, $to])
+            ->closedBetween($from, $to)
             ->whereIn('status', ['submitted', 'verified'])
             ->get();
 
@@ -308,7 +324,7 @@ class DailyFuelMetrics
 
         $products = FuelProducts::all()->keyBy(fn (Product $p) => FuelProducts::keyFor($p));
         $dates = $shifts
-            ->map(fn ($s) => Carbon::parse($s->assigned_date)->format('Y-m-d'))
+            ->map(fn ($s) => Carbon::parse($s->closed_date)->format('Y-m-d'))
             ->unique()
             ->sort()
             ->values();
@@ -316,7 +332,7 @@ class DailyFuelMetrics
         return $dates->mapWithKeys(function (string $date) use ($shifts, $refills, $products) {
             [$dayFrom, $dayTo] = BusinessDayService::businessDayBounds($date);
             $dayShifts = $shifts->filter(
-                fn ($s) => Carbon::parse($s->assigned_date)->format('Y-m-d') === $date
+                fn ($s) => Carbon::parse($s->closed_date)->format('Y-m-d') === $date
             );
             $split = self::splitShiftsByFuel($dayShifts);
 
@@ -385,13 +401,17 @@ class DailyFuelMetrics
         $allShifts = EmployeeShift::query()
             ->with('nozzle')
             ->whereIn('status', ['submitted', 'verified'])
-            ->get(['assigned_date', 'nozzle_id', 'total_liters']);
+            ->whereNotNull('closed_date')
+            ->get(['closed_date', 'nozzle_id', 'total_liters']);
 
         $allOwner = OwnerFuelUsage::query()
             ->get(['product_id', 'liters', 'usage_datetime']);
 
+        $allAgency = AgencyFuelCredit::query()
+            ->get(['product_id', 'liters', 'credit_datetime']);
+
         $shiftDates = $allShifts
-            ->map(fn ($s) => Carbon::parse($s->assigned_date)->format('Y-m-d'))
+            ->map(fn ($s) => Carbon::parse($s->closed_date)->format('Y-m-d'))
             ->filter(fn ($d) => $d >= $from && $d <= $to);
 
         $refillDates = $allRefills
@@ -410,7 +430,7 @@ class DailyFuelMetrics
             $dates = collect([$from]);
         }
 
-        $stockAt = function (int $productId, Carbon $asOf) use ($tanks, $allRefills, $allShifts, $allOwner): float {
+        $stockAt = function (int $productId, Carbon $asOf) use ($tanks, $allRefills, $allShifts, $allOwner, $allAgency): float {
             $asOfDate = BusinessDayService::toBusinessDate($asOf)->toDateString();
             $stock = (float) $tanks->where('product_id', $productId)->sum('current_stock_liters');
 
@@ -421,18 +441,21 @@ class DailyFuelMetrics
 
             $stock += (float) $allShifts
                 ->filter(function ($s) use ($productId, $asOfDate) {
-                    $shiftDate = Carbon::parse($s->assigned_date)->format('Y-m-d');
+                    $shiftDate = Carbon::parse($s->closed_date)->format('Y-m-d');
 
                     return $shiftDate > $asOfDate
                         && (int) ($s->nozzle->product_id ?? 0) === $productId;
                 })
                 ->sum('total_liters');
 
-            // Shifts on asOfDate after asOf time aren't tracked by assigned_date alone;
-            // business-day closing uses end-of-day, opening uses previous day end.
             $stock += (float) $allOwner
                 ->filter(fn ($u) => (int) $u->product_id === $productId
                     && Carbon::parse($u->usage_datetime)->gt($asOf))
+                ->sum('liters');
+
+            $stock += (float) $allAgency
+                ->filter(fn ($c) => (int) $c->product_id === $productId
+                    && Carbon::parse($c->credit_datetime)->gt($asOf))
                 ->sum('liters');
 
             return max(0, round($stock, 2));
@@ -595,8 +618,10 @@ class DailyFuelMetrics
         Collection $allRefills,
         Collection $shiftsByDate,
         Collection $ownerUsages,
+        Collection $agencyCredits,
         Collection $futureShifts,
         Collection $futureOwner,
+        Collection $futureAgency,
         Collection $futureRefills
     ): float {
         $stock = $currentTotalStock;
@@ -618,6 +643,11 @@ class DailyFuelMetrics
             ->filter(fn ($u) => Carbon::parse($u->usage_datetime)->gt($dayTo))
             ->sum('liters');
         $stock += (float) $futureOwner->sum('liters');
+
+        $stock += (float) $agencyCredits
+            ->filter(fn ($c) => Carbon::parse($c->credit_datetime)->gt($dayTo))
+            ->sum('liters');
+        $stock += (float) $futureAgency->sum('liters');
 
         return max(0, $stock);
     }

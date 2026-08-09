@@ -154,9 +154,13 @@ class EmployeeShiftTest extends TestCase
         $this->actingAs($graph['user'])
             ->get(route('employee-shifts.close-form', $shift->id))
             ->assertOk()
-            ->assertSee('Expected Amount')
-            ->assertSee('expectedAmountDisplay')
-            ->assertSee('closingReadingInput');
+            ->assertSee('Close Shift')
+            ->assertSee('How liters are split')
+            ->assertSee('Owner fuel used on this nozzle')
+            ->assertSee('Agency customer credit')
+            ->assertSee('closingReadingInput')
+            ->assertSee('Closing date')
+            ->assertSee('name="closed_date"', false);
     }
 
     public function test_can_edit_active_shift_opening_reading(): void
@@ -246,5 +250,105 @@ class EmployeeShiftTest extends TestCase
         $this->actingAs($graph['user'])
             ->get(route('employee-shifts.edit', $shift->id))
             ->assertRedirect(route('employee-shifts.index'));
+    }
+
+    public function test_owner_can_close_shift_with_zero_sales(): void
+    {
+        $this->travelToBusinessHours();
+        $graph = $this->createFuelStationGraph(tankStock: 10000, pricePerLiter: 100, meterReading: 1000);
+
+        $this->actingAs($graph['user'])->post(route('employee-shifts.store'), [
+            'employee_id' => $graph['employee']->id,
+            'nozzle_id' => $graph['nozzle']->id,
+            'opening_reading' => 1000,
+        ]);
+
+        $shift = EmployeeShift::first();
+
+        $this->actingAs($graph['user'])->post(route('employee-shifts.close', $shift->id), [
+            'closing_reading' => 1000,
+            'testing_liters' => 0,
+            'cash_received' => 0,
+            'online_received' => 0,
+        ])
+            ->assertRedirect(route('employee-shifts.index'))
+            ->assertSessionHas('success');
+
+        $shift->refresh();
+        $this->assertSame('submitted', $shift->status);
+        $this->assertEquals(0.0, (float) $shift->total_liters);
+        $this->assertEquals(0.0, (float) $shift->total_amount);
+        $this->assertNotNull($shift->closed_date);
+        $this->assertEquals(1000.0, (float) $graph['nozzle']->fresh()->current_meter_reading);
+        $this->assertEquals(10000.0, (float) $graph['tank']->fresh()->current_stock_liters);
+    }
+
+    public function test_can_select_opening_and_closing_dates(): void
+    {
+        $this->travelToBusinessHours();
+        $graph = $this->createFuelStationGraph(tankStock: 10000, pricePerLiter: 100, meterReading: 1000);
+        $openingDate = now()->subDay()->toDateString();
+        $closingDate = now()->toDateString();
+
+        $this->actingAs($graph['user'])->post(route('employee-shifts.store'), [
+            'employee_id' => $graph['employee']->id,
+            'nozzle_id' => $graph['nozzle']->id,
+            'assigned_date' => $openingDate,
+            'opening_reading' => 1000,
+        ])->assertRedirect(route('employee-shifts.index'));
+
+        $shift = EmployeeShift::first();
+        $this->assertEquals($openingDate, $shift->assigned_date->toDateString());
+
+        $this->actingAs($graph['user'])->post(route('employee-shifts.close', $shift->id), [
+            'closed_date' => $closingDate,
+            'closing_reading' => 1050,
+            'testing_liters' => 0,
+            'cash_received' => 5000,
+            'online_received' => 0,
+        ])->assertRedirect(route('employee-shifts.index'));
+
+        $shift->refresh();
+        $this->assertEquals($closingDate, $shift->closed_date->toDateString());
+
+        $this->actingAs($graph['user'])->put(route('employee-shifts.update', $shift->id), [
+            'employee_id' => $graph['employee']->id,
+            'assigned_date' => $openingDate,
+            'closed_date' => $closingDate,
+            'closing_reading' => 1060,
+            'testing_liters' => 0,
+            'cash_received' => 6000,
+            'online_received' => 0,
+        ])->assertRedirect(route('employee-shifts.index'));
+
+        $shift->refresh();
+        $this->assertEquals($openingDate, $shift->assigned_date->toDateString());
+        $this->assertEquals($closingDate, $shift->closed_date->toDateString());
+        $this->assertEquals(60.0, (float) $shift->total_liters);
+    }
+
+    public function test_index_defaults_to_all_open_shifts(): void
+    {
+        $this->travelToBusinessHours();
+        $graph = $this->createFuelStationGraph(meterReading: 1000);
+
+        $this->actingAs($graph['user'])->post(route('employee-shifts.store'), [
+            'employee_id' => $graph['employee']->id,
+            'nozzle_id' => $graph['nozzle']->id,
+            'assigned_date' => now()->subDays(3)->toDateString(),
+            'opening_reading' => 1000,
+        ])->assertRedirect();
+
+        $this->actingAs($graph['user'])
+            ->get(route('employee-shifts.index'))
+            ->assertOk()
+            ->assertSee('All Open')
+            ->assertSee($graph['employee']->name)
+            ->assertSee('Active');
+
+        $this->actingAs($graph['user'])
+            ->get(route('employee-shifts.index', ['filter' => 'today', 'status' => 'all']))
+            ->assertOk()
+            ->assertSee('No shifts in this period.');
     }
 }

@@ -11,6 +11,7 @@ use App\Http\Controllers\EmployeeShiftController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TankRefillsController;
 use App\Http\Controllers\TankDipReadingController;
+use App\Http\Controllers\AgencyCustomerController;
 use App\Http\Controllers\OwnerFuelUsageController;
 use App\Http\Controllers\CashTransactionController;
 use App\Http\Controllers\ExpensesController;
@@ -69,7 +70,10 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('cash-transactions', CashTransactionController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-    Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index']);
+    Route::resource('agency-customers', AgencyCustomerController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update']);
+    Route::post('agency-credits/{credit}/payments', [AgencyCustomerController::class, 'storePayment'])
+        ->name('agency-customers.credits.pay');
     Route::resource('tank-dip-readings', TankDipReadingController::class)->only(['index', 'create', 'store']);
     Route::resource('tank-refills', TankRefillsController::class)->only(['index', 'create', 'store']);
 
