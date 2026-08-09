@@ -59,4 +59,29 @@ class NozzleTest extends TestCase
         $response->assertSessionHas('success');
         $this->assertDatabaseHas('nozzles', ['nozzle_number' => 'N-NEW']);
     }
+
+    public function test_can_update_nozzle(): void
+    {
+        $graph = $this->createFuelStationGraph();
+        $nozzle = $graph['nozzle'];
+
+        $this->actingAs($graph['user'])->get(route('nozzles.index'))->assertOk();
+        $this->actingAs($graph['user'])->get(route('nozzles.edit', $nozzle))->assertOk();
+
+        $response = $this->actingAs($graph['user'])->put(route('nozzles.update', $nozzle), [
+            'dispenser_id' => $nozzle->dispenser_id,
+            'tank_id' => $nozzle->tank_id,
+            'product_id' => $nozzle->product_id,
+            'nozzle_number' => 'N-UPDATED',
+            'current_meter_reading' => 1200,
+            'status' => 1,
+        ]);
+
+        $response->assertRedirect(route('nozzles.index'));
+        $this->assertDatabaseHas('nozzles', [
+            'id' => $nozzle->id,
+            'nozzle_number' => 'N-UPDATED',
+            'current_meter_reading' => 1200,
+        ]);
+    }
 }

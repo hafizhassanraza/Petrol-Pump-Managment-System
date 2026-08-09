@@ -20,8 +20,6 @@
             padding-top: 18px; padding-bottom: 24px;
             position: sticky; top: 0; left: 0;
         }
-        .sidebar-logo { text-align: center; padding: 8px 16px 20px; pointer-events: none; }
-        .sidebar-logo img { max-width: 140px; max-height: 60px; object-fit: contain; }
         .sidebar a {
             color: #cbd5e1; text-decoration: none; display: block;
             padding: 12px 22px; transition: background 0.2s, color 0.2s;
