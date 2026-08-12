@@ -3,6 +3,7 @@
 namespace Tests\Feature\FuelStation;
 
 use App\Models\Employee;
+use App\Models\EmployeeSalary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreatesFuelStationFixtures;
 use Tests\TestCase;
@@ -95,5 +96,66 @@ class EmployeeTest extends TestCase
             ->assertRedirect(route('employees.index'));
 
         $this->assertDatabaseMissing('employees', ['id' => $orphan->id]);
+    }
+
+    public function test_employee_payment_ledger_and_pdf(): void
+    {
+        $graph = $this->createFuelStationGraph();
+        $employee = $graph['employee'];
+        $date = now()->toDateString();
+
+        EmployeeSalary::create([
+            'employee_id' => $employee->id,
+            'type' => EmployeeSalary::TYPE_ADVANCE,
+            'amount' => 5000,
+            'payment_date' => $date,
+            'salary_month' => now()->startOfMonth()->toDateString(),
+            'payment_method' => 'cash',
+            'notes' => 'Advance cash',
+            'created_by' => $graph['user']->id,
+        ]);
+
+        EmployeeSalary::create([
+            'employee_id' => $employee->id,
+            'type' => EmployeeSalary::TYPE_PARTIAL,
+            'amount' => 15000,
+            'payment_date' => $date,
+            'salary_month' => now()->startOfMonth()->toDateString(),
+            'payment_method' => 'bank',
+            'notes' => 'Partial balance',
+            'created_by' => $graph['user']->id,
+        ]);
+
+        $this->get(route('employees.ledger', $employee))->assertRedirect(route('login'));
+
+        $this->actingAs($graph['user'])
+            ->get(route('employees.ledger', [
+                'employee' => $employee,
+                'filter' => 'custom',
+                'from' => $date,
+                'to' => $date,
+            ]))
+            ->assertOk()
+            ->assertSee('Payment Ledger')
+            ->assertSee('Advance')
+            ->assertSee('Partial Salary')
+            ->assertSee('20,000')
+            ->assertSee(route('employees.ledger.pdf', $employee), false);
+
+        $pdf = $this->actingAs($graph['user'])
+            ->get(route('employees.ledger.pdf', [
+                'employee' => $employee,
+                'filter' => 'custom',
+                'from' => $date,
+                'to' => $date,
+            ]));
+
+        $pdf->assertOk();
+        $this->assertStringContainsString('application/pdf', (string) $pdf->headers->get('content-type'));
+
+        $this->actingAs($graph['user'])
+            ->get(route('employees.index'))
+            ->assertOk()
+            ->assertSee(route('employees.ledger', $employee), false);
     }
 }

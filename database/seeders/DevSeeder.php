@@ -7,6 +7,7 @@ use App\Models\Dispenser;
 use App\Models\Employee;
 use App\Models\EmployeeAttendance;
 use App\Models\EmployeeShift;
+use App\Models\EmployeeSalary;
 use App\Models\Expense;
 use App\Models\MobilOilProduct;
 use App\Models\MobilOilPurchase;
@@ -53,7 +54,14 @@ class DevSeeder extends Seeder
             $shiftId
         );
 
-        $this->command?->info('Dev seeders done: layout + ~14 days of sales, purchases, expenses, and attendance.');
+        $this->seedAuditLogs();
+
+        $this->command?->info('Dev seeders done: layout + ~14 days of sales, purchases, expenses, salaries, attendance, and audit logs.');
+    }
+
+    private function seedAuditLogs(): void
+    {
+        $this->call(AuditLogSeeder::class);
     }
 
     private function seedMobilOil(int $adminId): void
@@ -66,11 +74,13 @@ class DevSeeder extends Seeder
         Schema::disableForeignKeyConstraints();
 
         foreach ([
+            'audit_logs',
             'employee_attendances',
             'employee_shifts',
             'owner_fuel_usages',
             'tank_dip_readings',
             'tank_refills',
+            'employee_salaries',
             'expenses',
             'cash_transactions',
             'mobil_oil_sales',
@@ -389,14 +399,31 @@ class DevSeeder extends Seeder
                 ]);
             }
 
-            // Salary expense once in the period
+            // Payroll once in the period (full + sample advance)
             if ($daysAgo === 1) {
-                $salaryTotal = (float) Employee::where('status', 1)->sum('salary');
-                Expense::create([
-                    'expense_type' => 'Salary',
-                    'amount' => $salaryTotal,
-                    'expense_date' => $dateStr,
-                    'notes' => 'Monthly payroll (demo)',
+                foreach (Employee::where('status', 1)->get() as $employee) {
+                    EmployeeSalary::create([
+                        'employee_id' => $employee->id,
+                        'type' => EmployeeSalary::TYPE_FULL,
+                        'amount' => (float) $employee->salary,
+                        'payment_date' => $dateStr,
+                        'salary_month' => Carbon::parse($dateStr)->startOfMonth()->toDateString(),
+                        'payment_method' => 'cash',
+                        'notes' => 'Monthly payroll (demo)',
+                        'created_by' => $adminId,
+                    ]);
+                }
+            }
+
+            if ($daysAgo === 8 && ! empty($employeeIds[0])) {
+                EmployeeSalary::create([
+                    'employee_id' => $employeeIds[0],
+                    'type' => EmployeeSalary::TYPE_ADVANCE,
+                    'amount' => 5000,
+                    'payment_date' => $dateStr,
+                    'salary_month' => Carbon::parse($dateStr)->startOfMonth()->toDateString(),
+                    'payment_method' => 'cash',
+                    'notes' => 'Advance (demo)',
                     'created_by' => $adminId,
                 ]);
             }

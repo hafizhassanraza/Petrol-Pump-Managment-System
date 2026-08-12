@@ -21,10 +21,13 @@ use App\Http\Controllers\LandingController;
 use App\Http\Controllers\MobilOilProductController;
 use App\Http\Controllers\MobilOilPurchaseController;
 use App\Http\Controllers\MobilOilSaleController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\EmployeeSalaryController;
+use App\Http\Middleware\LogAuditTrail;
 
 Route::get('/', [LandingController::class, 'index'])->name('home');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', LogAuditTrail::class])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -69,6 +72,9 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::resource('expenses', ExpensesController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('employee-salaries', EmployeeSalaryController::class)->except(['show']);
+    Route::get('reports/employee-salaries', [EmployeeSalaryController::class, 'report'])->name('reports.employee-salaries');
+    Route::get('reports/employee-salaries/pdf', [EmployeeSalaryController::class, 'reportPdf'])->name('reports.employee-salaries.pdf');
     Route::resource('cash-transactions', CashTransactionController::class)->only(['index', 'create', 'store', 'edit', 'update']);
     Route::resource('owner-fuel-usages', OwnerFuelUsageController::class)->only(['index']);
     Route::resource('agency-customers', AgencyCustomerController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update']);
@@ -84,6 +90,8 @@ Route::middleware('auth')->group(function () {
     Route::post('employee-shifts/{id}/close', [EmployeeShiftController::class, 'close'])->name('employee-shifts.close');
     Route::post('employee-shifts/{id}/verify', [EmployeeShiftController::class, 'verify'])->name('employee-shifts.verify');
 
+    Route::get('employees/{employee}/ledger', [EmployeeController::class, 'ledger'])->name('employees.ledger');
+    Route::get('employees/{employee}/ledger/pdf', [EmployeeController::class, 'ledgerPdf'])->name('employees.ledger.pdf');
     Route::resource('employees', EmployeeController::class);
     Route::resource('employee-attendances', EmployeeAttendanceController::class);
     Route::resource('nozzles', NozzleController::class);
@@ -91,6 +99,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('tanks', TankController::class);
 
     Route::resource('product-prices', ProductPriceController::class)->only(['index', 'create', 'store']);
+
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+    Route::get('audit-logs/pdf', [AuditLogController::class, 'pdf'])->name('audit-logs.pdf');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

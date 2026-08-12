@@ -48,12 +48,17 @@ Profit &amp; Loss Report
             <td>- {{ money($expenses) }}</td>
         </tr>
         <tr>
-            <td>Owner Fuel Usage</td>
+            <td>Employee Salaries</td>
             <td>—</td>
-            <td>- {{ money($ownerFuel) }}</td>
+            <td>- {{ money($salaries) }}</td>
         </tr>
         <tr>
-            <td><strong>Total Expense</strong></td>
+            <td>Owner Fuel Usage (excluded from sales)</td>
+            <td>—</td>
+            <td>{{ money($ownerFuel) }}</td>
+        </tr>
+        <tr>
+            <td><strong>Total Operating Expense</strong></td>
             <td>—</td>
             <td><strong>- {{ money($operatingAndOwnerTotal) }}</strong></td>
         </tr>

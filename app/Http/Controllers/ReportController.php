@@ -12,6 +12,7 @@ use App\Models\MobilOilSale;
 use App\Models\ProductPrice;
 use App\Models\Tank;
 use App\Models\OwnerFuelUsage;
+use App\Models\EmployeeSalary;
 use App\Models\TankDipReading;
 use App\Models\TankRefill;
 use App\Services\BusinessDayService;
@@ -360,8 +361,10 @@ class ReportController extends Controller
 
         $sales = $fuelSales + $mobilOilSales;
 
-        $expenses = (float) Expense::whereBetween('expense_date', [$from, $to])->sum('amount');
-        $expenseCount = Expense::whereBetween('expense_date', [$from, $to])->count();
+        $expenses = (float) Expense::operating()->whereBetween('expense_date', [$from, $to])->sum('amount');
+        $expenseCount = Expense::operating()->whereBetween('expense_date', [$from, $to])->count();
+        $salaries = (float) EmployeeSalary::whereBetween('payment_date', [$from, $to])->sum('amount');
+        $salaryCount = EmployeeSalary::whereBetween('payment_date', [$from, $to])->count();
         $ownerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->sum('total_amount');
         $ownerFuelLiters = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->sum('liters');
         $ownerFuelCount = OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->count();
@@ -372,11 +375,12 @@ class ReportController extends Controller
         $mobilOilCogs = (float) MobilOilPurchase::whereBetween('received_datetime', [$fromAt, $toAt])->sum('total_amount');
         $mobilOilPurchaseQty = (float) MobilOilPurchase::whereBetween('received_datetime', [$fromAt, $toAt])->sum('quantity');
 
-        $totalCosts = $expenses + $ownerFuel + $refillCogs + $mobilOilCogs;
-        $grossProfit = $sales - ($expenses + $ownerFuel);
+        $totalCosts = $expenses + $salaries + $refillCogs + $mobilOilCogs;
+        $grossProfit = $sales - $expenses - $salaries;
         $netProfit = $sales - $totalCosts;
         $profitMargin = $sales > 0 ? round(($grossProfit / $sales) * 100, 2) : 0;
         $expenseRatio = $sales > 0 ? round(($expenses / $sales) * 100, 2) : 0;
+        $salaryRatio = $sales > 0 ? round(($salaries / $sales) * 100, 2) : 0;
         $ownerFuelRatio = $sales > 0 ? round(($ownerFuel / $sales) * 100, 2) : 0;
 
         $productBreakdown = DailyFuelMetrics::byProduct($from, $to);
@@ -385,8 +389,9 @@ class ReportController extends Controller
         $fuelSalesProfit = (float) $productBreakdown->sum('total_profit');
         $mobilOilSalesProfit = (float) $mobilOilBreakdown->sum('total_profit');
         $totalSalesProfit = $fuelSalesProfit + $mobilOilSalesProfit;
-        $operatingAndOwnerTotal = $expenses + $ownerFuel;
-        $netSalesProfit = $totalSalesProfit - $operatingAndOwnerTotal;
+        // Owner fuel liters are already removed from shift sales on close — do not deduct again.
+        $operatingAndOwnerTotal = $expenses + $salaries;
+        $netSalesProfit = $totalSalesProfit - $expenses - $salaries;
 
         return array_merge($range, compact(
             'sales',
@@ -398,6 +403,8 @@ class ReportController extends Controller
             'salesCount',
             'expenses',
             'expenseCount',
+            'salaries',
+            'salaryCount',
             'ownerFuel',
             'ownerFuelLiters',
             'ownerFuelCount',
@@ -410,6 +417,7 @@ class ReportController extends Controller
             'netProfit',
             'profitMargin',
             'expenseRatio',
+            'salaryRatio',
             'ownerFuelRatio',
             'productBreakdown',
             'mobilOilBreakdown',
@@ -461,8 +469,9 @@ class ReportController extends Controller
             fputcsv($f, ['Mobil Oil', money($data['mobilOilSales']), money($data['mobilOilSalesProfit'])]);
             fputcsv($f, ['Total', money($data['sales']), money($data['totalSalesProfit'])]);
             fputcsv($f, ['Operating Expenses', '', '- '.money($data['expenses'])]);
-            fputcsv($f, ['Owner Fuel Usage', '', '- '.money($data['ownerFuel'])]);
-            fputcsv($f, ['Total Expense', '', '- '.money($data['operatingAndOwnerTotal'])]);
+            fputcsv($f, ['Employee Salaries', '', '- '.money($data['salaries'])]);
+            fputcsv($f, ['Owner Fuel Usage (excluded from sales)', '', money($data['ownerFuel'])]);
+            fputcsv($f, ['Total Operating Expense', '', '- '.money($data['operatingAndOwnerTotal'])]);
             fputcsv($f, ['Net Profit (Inc. Total Expense)', '', money($data['netSalesProfit'])]);
 
             fclose($f);
@@ -603,7 +612,7 @@ class ReportController extends Controller
     {
         $range = $this->getExpensesRange($request);
 
-        $query = Expense::query();
+        $query = Expense::operating();
 
         if ($range['from'] && $range['to']) {
             $query->whereBetween('expense_date', [$range['from'], $range['to']]);

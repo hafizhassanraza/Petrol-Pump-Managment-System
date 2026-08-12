@@ -136,6 +136,10 @@
         <div class="kpi-label">Expenses</div>
         <div class="kpi-value">PKR {{ number_format($periodExpense, 0) }}</div>
     </div>
+    <div class="kpi-card kpi-info">
+        <div class="kpi-label">Employee Salaries</div>
+        <div class="kpi-value">PKR {{ number_format($periodSalary, 0) }}</div>
+    </div>
     <div class="kpi-card kpi-warning">
         <div class="kpi-label">Owner Fuel</div>
         <div class="kpi-value">PKR {{ number_format($periodOwnerFuel, 0) }}</div>
@@ -253,7 +257,11 @@
             <div class="stat-row"><span>Mobil Oil Sales</span><strong class="text-profit">PKR {{ money($periodMobilOilSales) }}</strong></div>
             @endif
             <div class="stat-row"><span>Total Expenses</span><strong class="text-loss">PKR {{ money($periodExpense) }}</strong></div>
-            <div class="stat-row"><span>Owner Fuel Usage</span><strong class="text-loss">PKR {{ money($periodOwnerFuel) }}</strong></div>
+            <div class="stat-row"><span>Employee Salaries</span><strong class="text-loss">PKR {{ money($periodSalary) }}</strong></div>
+            <div class="stat-row">
+                <span>Owner Fuel Usage <small class="text-muted">(excluded from sales)</small></span>
+                <strong>PKR {{ money($periodOwnerFuel) }}</strong>
+            </div>
             <div class="stat-row"><span>Tank Refill Purchases</span><strong>PKR {{ money($periodRefills) }}</strong></div>
             <div class="stat-row"><span>Liters Sold</span><strong>{{ number_format($periodLiters, 2) }} L</strong></div>
             <div class="stat-row"><span><i class="bi bi-cash-stack text-success"></i> Cash Received</span><strong>PKR {{ money($periodCash) }}</strong></div>
@@ -371,6 +379,7 @@ const palette = ['#667eea','#764ba2','#11998e','#38ef7d','#f5576c','#f093fb','#f
 const trendLabels = @json($trend['labels']);
 const trendSales = @json($trend['sales']);
 const trendExpenses = @json($trend['expenses']);
+const trendSalaries = @json($trend['salaries'] ?? []);
 const trendOwnerFuel = @json($trend['ownerFuel']);
 const trendNet = @json($trend['net']);
 const trendLiters = @json($trend['liters']);
@@ -382,6 +391,7 @@ new Chart(document.getElementById('trendChart'), {
         datasets: [
             { label: 'Sales (PKR)', data: trendSales, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', fill: true, tension: 0.35, yAxisID: 'y' },
             { label: 'Expenses (PKR)', data: trendExpenses, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.05)', fill: true, tension: 0.35, yAxisID: 'y' },
+            { label: 'Salaries (PKR)', data: trendSalaries, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.05)', fill: true, tension: 0.35, yAxisID: 'y' },
             { label: 'Owner Fuel (PKR)', data: trendOwnerFuel, borderColor: '#f59e0b', borderDash: [4,4], tension: 0.35, yAxisID: 'y' },
             { label: 'Net Profit (PKR)', data: trendNet, borderColor: '#667eea', borderWidth: 2.5, tension: 0.35, yAxisID: 'y' },
         ]

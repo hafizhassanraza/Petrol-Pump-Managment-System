@@ -113,12 +113,20 @@
                 <td style="text-align: right;" class="text-loss">- {{ money($expenses) }}</td>
             </tr>
             <tr>
-                <td>Owner Fuel Usage</td>
+                <td>Employee Salaries</td>
                 <td style="text-align: right;">—</td>
-                <td style="text-align: right;" class="text-loss">- {{ money($ownerFuel) }}</td>
+                <td style="text-align: right;" class="text-loss">- {{ money($salaries) }}</td>
+            </tr>
+            <tr>
+                <td>
+                    Owner Fuel Usage
+                    <small class="text-muted d-block">Already excluded from sales (not deducted again)</small>
+                </td>
+                <td style="text-align: right;">—</td>
+                <td style="text-align: right;">{{ money($ownerFuel) }}</td>
             </tr>
             <tr style="background:#f8fafc; font-weight:600;">
-                <td>Total Expense</td>
+                <td>Total Operating Expense</td>
                 <td style="text-align: right;">—</td>
                 <td style="text-align: right;" class="text-loss">- {{ money($operatingAndOwnerTotal) }}</td>
             </tr>

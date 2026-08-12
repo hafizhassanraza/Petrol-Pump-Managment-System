@@ -20,6 +20,9 @@
     <a href="{{ route('employee-attendances.index') }}" class="{{ request()->routeIs('employee-attendances.*') ? 'active' : '' }}">
         <i class="bi bi-calendar-check"></i> Attendance
     </a>
+    <a href="{{ route('employee-salaries.index') }}" class="{{ request()->routeIs('employee-salaries.*') ? 'active' : '' }}">
+        <i class="bi bi-wallet"></i> Employee Salaries
+    </a>
     <a href="{{ route('employee-shifts.index') }}" class="{{ request()->routeIs('employee-shifts.*') ? 'active' : '' }}">
         <i class="bi bi-arrow-repeat"></i> Employee Shifts
     </a>
@@ -40,6 +43,9 @@
     </a>
     <a href="{{ route('cash-transactions.index') }}" class="{{ request()->routeIs('cash-transactions.*') ? 'active' : '' }}">
         <i class="bi bi-wallet2"></i> Cash In / Out
+    </a>
+    <a href="{{ route('audit-logs.index') }}" class="{{ request()->routeIs('audit-logs.*') ? 'active' : '' }}">
+        <i class="bi bi-journal-text"></i> Activity Logs
     </a>
 
     <div class="sidebar-section-label">Mobil Oil</div>

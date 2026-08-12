@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Employee;
 use App\Models\Expense;
 use App\Services\BusinessDayService;
 use App\Support\ReportRange;
@@ -17,7 +16,9 @@ class ExpensesController extends Controller
     {
         $range = ReportRange::fromRequest($request);
 
-        $expenses = Expense::whereDate('expense_date', '>=', $range['from'])
+        $expenses = Expense::query()
+            ->operating()
+            ->whereDate('expense_date', '>=', $range['from'])
             ->whereDate('expense_date', '<=', $range['to'])
             ->latest('expense_date')
             ->paginate(15)
@@ -31,7 +32,6 @@ class ExpensesController extends Controller
         return view('expenses.create', [
             'expenseTypes' => $this->expenseTypes(),
             'defaultDate' => BusinessDayService::currentBusinessDate()->toDateString(),
-            'salaryTotal' => $this->salaryTotal(),
         ]);
     }
 
@@ -50,7 +50,6 @@ class ExpensesController extends Controller
         return view('expenses.edit', [
             'expense' => $expense,
             'expenseTypes' => $this->expenseTypes(),
-            'salaryTotal' => $this->salaryTotal(),
         ]);
     }
 
@@ -73,7 +72,6 @@ class ExpensesController extends Controller
             'Electricity Bill',
             'Maintenance',
             'Repair',
-            'Salary',
             'Miscellaneous',
         ];
     }
@@ -85,27 +83,14 @@ class ExpensesController extends Controller
     {
         $data = $request->validate([
             'expense_type' => ['required', 'string', 'max:100', Rule::in($this->expenseTypes())],
-            'amount' => [
-                Rule::requiredIf(fn () => $request->input('expense_type') !== 'Salary'),
-                'nullable',
-                'numeric',
-                'min:0.01',
-            ],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'expense_date' => 'required|date',
             'notes' => 'nullable|string',
         ]);
 
-        $data['amount'] = $data['expense_type'] === 'Salary'
-            ? $this->salaryTotal()
-            : round((float) $data['amount'], 2);
-
+        $data['amount'] = round((float) $data['amount'], 2);
         $data['expense_date'] = Carbon::parse($data['expense_date'])->toDateString();
 
         return $data;
-    }
-
-    private function salaryTotal(): float
-    {
-        return round((float) Employee::where('status', 1)->sum('salary'), 2);
     }
 }

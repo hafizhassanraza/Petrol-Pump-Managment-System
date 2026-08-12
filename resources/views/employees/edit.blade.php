@@ -41,6 +41,7 @@
             </div>
         </div>
         <button type="submit" class="btn btn-success">Update</button>
+        <a href="{{ route('employees.ledger', $employee) }}" class="btn btn-outline-primary">Payment Ledger</a>
         <a href="{{ route('employees.index') }}" class="btn btn-secondary">Cancel</a>
     </form>
 </div>

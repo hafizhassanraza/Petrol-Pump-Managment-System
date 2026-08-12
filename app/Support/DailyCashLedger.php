@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\CashTransaction;
+use App\Models\EmployeeSalary;
 use App\Models\EmployeeShift;
 use App\Models\Expense;
 use App\Models\MobilOilSale;
@@ -13,10 +14,11 @@ use Illuminate\Support\Collection;
 /**
  * Daily physical cash drawer ledger with opening / closing balances.
  *
- * Closing = Opening + Sales Cash + Cash In − Cash Out − Expenses
+ * Closing = Opening + Sales Cash + Cash In − Cash Out − Operating Expenses − Cash Salaries
  * Sales Bank/Online is shown for reference and does not affect drawer balance.
  * Only CashTransaction rows with payment_method = cash affect the drawer.
  * Fuel sales are attributed by shift closed_date.
+ * Employee salaries paid by cash reduce the drawer; bank/online salaries do not.
  */
 class DailyCashLedger
 {
@@ -63,11 +65,16 @@ class DailyCashLedger
             ->whereDate('transaction_date', '<=', $to)
             ->get(['type', 'amount', 'transaction_date']);
 
-        $expenses = Expense::query()
+        $expenses = Expense::operating()
             ->whereDate('expense_date', '<=', $to)
             ->get(['amount', 'expense_date']);
 
-        $opening = self::balanceBefore($from, $shifts, $mobilSales, $transactions, $expenses, $rangeFromAt);
+        $cashSalaries = EmployeeSalary::query()
+            ->where('payment_method', 'cash')
+            ->whereDate('payment_date', '<=', $to)
+            ->get(['amount', 'payment_date']);
+
+        $opening = self::balanceBefore($from, $shifts, $mobilSales, $transactions, $expenses, $cashSalaries, $rangeFromAt);
 
         $days = collect();
         $cursor = Carbon::parse($from)->startOfDay();
@@ -105,7 +112,13 @@ class DailyCashLedger
                 ->filter(fn ($e) => Carbon::parse($e->expense_date)->toDateString() === $date)
                 ->sum('amount');
 
-            $closing = round($running + $salesCash + $cashIn - $cashOut - $dayExpenses, 2);
+            $daySalaries = (float) $cashSalaries
+                ->filter(fn ($s) => Carbon::parse($s->payment_date)->toDateString() === $date)
+                ->sum('amount');
+
+            $dayCashOutflows = $dayExpenses + $daySalaries;
+
+            $closing = round($running + $salesCash + $cashIn - $cashOut - $dayCashOutflows, 2);
 
             $days->push([
                 'date' => $date,
@@ -115,7 +128,7 @@ class DailyCashLedger
                 'sales_bank' => round($salesBank, 2),
                 'cash_in' => round($cashIn, 2),
                 'cash_out' => round($cashOut, 2),
-                'expenses' => round($dayExpenses, 2),
+                'expenses' => round($dayCashOutflows, 2),
                 'closing' => $closing,
             ]);
 
@@ -141,6 +154,7 @@ class DailyCashLedger
         Collection $mobilSales,
         Collection $transactions,
         Collection $expenses,
+        Collection $cashSalaries,
         Carbon $rangeFromAt
     ): float {
         $salesCash = (float) $shifts
@@ -166,6 +180,10 @@ class DailyCashLedger
             ->filter(fn ($e) => Carbon::parse($e->expense_date)->toDateString() < $from)
             ->sum('amount');
 
-        return round($salesCash + $cashIn - $cashOut - $expenseTotal, 2);
+        $salaryTotal = (float) $cashSalaries
+            ->filter(fn ($s) => Carbon::parse($s->payment_date)->toDateString() < $from)
+            ->sum('amount');
+
+        return round($salesCash + $cashIn - $cashOut - $expenseTotal - $salaryTotal, 2);
     }
 }

@@ -178,9 +178,20 @@
         <div class="card-top">
             <div>
                 <div class="report-card-title">Expense Report</div>
-                <div class="report-card-text">Review expense entries and track spending with a polished report card.</div>
+                <div class="report-card-text">Review operating expense entries and track spending with a polished report card.</div>
             </div>
             <div class="card-icon"><i class="bi bi-wallet2"></i></div>
+        </div>
+        <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
+    </a>
+
+    <a href="{{ route('reports.employee-salaries') }}" class="report-card daily">
+        <div class="card-top">
+            <div>
+                <div class="report-card-title">Employee Salaries</div>
+                <div class="report-card-text">Full, advance, partial, and bonus salary payments by employee and period.</div>
+            </div>
+            <div class="card-icon"><i class="bi bi-people"></i></div>
         </div>
         <span class="report-card-action">Open report <i class="bi bi-arrow-right-short"></i></span>
     </a>

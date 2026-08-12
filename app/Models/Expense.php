@@ -27,4 +27,12 @@ class Expense extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * Operating expenses only (salary is tracked in employee_salaries).
+     */
+    public function scopeOperating($query)
+    {
+        return $query->where('expense_type', '!=', 'Salary');
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Dispenser;
 use App\Models\Employee;
 use App\Models\EmployeeShift;
+use App\Models\EmployeeSalary;
 use App\Models\Expense;
 use App\Models\MobilOilSale;
 use App\Models\Nozzle;
@@ -53,24 +54,31 @@ class DashboardController extends Controller
         $periodCash = (float) $shiftQuery()->sum('cash_received');
         $periodOnline = (float) $shiftQuery()->sum('online_received');
 
-        $periodExpense = (float) Expense::whereBetween('expense_date', [$from, $to])->sum('amount');
+        $periodExpense = (float) Expense::operating()
+            ->whereBetween('expense_date', [$from, $to])
+            ->sum('amount');
+        $periodSalary = (float) EmployeeSalary::whereBetween('payment_date', [$from, $to])->sum('amount');
         $periodOwnerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->sum('total_amount');
         $periodRefills = (float) TankRefill::whereBetween('received_datetime', [$fromAt, $toAt])->sum('total_amount');
         $periodMobilOilSales = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('total_amount');
-        $periodNet = $periodSales + $periodMobilOilSales - $periodExpense - $periodOwnerFuel;
+        // Owner fuel is already excluded from shift sales totals — do not deduct again.
+        $periodNet = $periodSales + $periodMobilOilSales - $periodExpense - $periodSalary;
 
         $mtdSales = (float) EmployeeShift::closedBetween($monthStart, $businessDateStr)
             ->whereIn('status', ['submitted', 'verified'])
             ->sum('total_amount');
         $mtdLiters = (float) EmployeeShift::closedBetween($monthStart, $businessDateStr)
             ->sum('total_liters');
-        $mtdExpense = (float) Expense::whereBetween('expense_date', [$monthStart, $businessDateStr])->sum('amount');
+        $mtdExpense = (float) Expense::operating()
+            ->whereBetween('expense_date', [$monthStart, $businessDateStr])
+            ->sum('amount');
+        $mtdSalary = (float) EmployeeSalary::whereBetween('payment_date', [$monthStart, $businessDateStr])->sum('amount');
         [$monthFromAt, $monthToAt] = BusinessDayService::businessDayBounds($businessDateStr);
         $mtdOwnerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [
             Carbon::parse($monthStart)->setTime(9, 0),
             $monthToAt,
         ])->sum('total_amount');
-        $mtdNet = $mtdSales - $mtdExpense - $mtdOwnerFuel;
+        $mtdNet = $mtdSales - $mtdExpense - $mtdSalary;
         $mtdRefills = (float) TankRefill::whereBetween('received_datetime', [
             Carbon::parse($monthStart)->startOfDay(),
             $monthToAt,
@@ -79,7 +87,8 @@ class DashboardController extends Controller
         $trend = $this->buildDailyTrend($from, $to);
         $chartDayCount = count($trend['labels']);
 
-        $expenseByType = Expense::whereBetween('expense_date', [$from, $to])
+        $expenseByType = Expense::operating()
+            ->whereBetween('expense_date', [$from, $to])
             ->selectRaw('expense_type, SUM(amount) as total')
             ->groupBy('expense_type')
             ->orderByDesc('total')
@@ -114,9 +123,16 @@ class DashboardController extends Controller
             ->take(6)
             ->get();
 
-        $recentExpenses = Expense::whereBetween('expense_date', [$from, $to])
+        $recentExpenses = Expense::operating()
+            ->whereBetween('expense_date', [$from, $to])
             ->latest('expense_date')
             ->take(6)
+            ->get();
+
+        $recentSalaries = EmployeeSalary::with('employee')
+            ->whereBetween('payment_date', [$from, $to])
+            ->latest('payment_date')
+            ->take(5)
             ->get();
 
         $recentOwnerFuel = OwnerFuelUsage::with('product')
@@ -131,6 +147,7 @@ class DashboardController extends Controller
             'periodSales',
             'periodLiters',
             'periodExpense',
+            'periodSalary',
             'periodOwnerFuel',
             'periodRefills',
             'periodMobilOilSales',
@@ -141,6 +158,7 @@ class DashboardController extends Controller
             'mtdSales',
             'mtdLiters',
             'mtdExpense',
+            'mtdSalary',
             'mtdOwnerFuel',
             'mtdNet',
             'mtdRefills',
@@ -155,6 +173,7 @@ class DashboardController extends Controller
             'totalTankCapacity',
             'recentShifts',
             'recentExpenses',
+            'recentSalaries',
             'recentOwnerFuel'
         )));
     }
@@ -175,6 +194,7 @@ class DashboardController extends Controller
         $labels = [];
         $sales = [];
         $expenses = [];
+        $salaries = [];
         $ownerFuel = [];
         $net = [];
         $liters = [];
@@ -197,19 +217,21 @@ class DashboardController extends Controller
                 ->sum('total_amount');
             $dayMobilOil = (float) MobilOilSale::whereBetween('sold_datetime', [$dayFrom, $dayTo])->sum('total_amount');
             $dayLiters = (float) EmployeeShift::closedOn($dateStr)->sum('total_liters');
-            $dayExpense = (float) Expense::whereDate('expense_date', $dateStr)->sum('amount');
+            $dayExpense = (float) Expense::operating()->whereDate('expense_date', $dateStr)->sum('amount');
+            $daySalary = (float) EmployeeSalary::whereDate('payment_date', $dateStr)->sum('amount');
             $dayOwnerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$dayFrom, $dayTo])->sum('total_amount');
 
             $totalDaySales = $daySales + $dayMobilOil;
 
             $sales[] = $totalDaySales;
             $expenses[] = $dayExpense;
+            $salaries[] = $daySalary;
             $ownerFuel[] = $dayOwnerFuel;
             $liters[] = $dayLiters;
-            $net[] = $totalDaySales - $dayExpense - $dayOwnerFuel;
+            $net[] = $totalDaySales - $dayExpense - $daySalary;
         }
 
-        return compact('labels', 'sales', 'expenses', 'ownerFuel', 'net', 'liters');
+        return compact('labels', 'sales', 'expenses', 'salaries', 'ownerFuel', 'net', 'liters');
     }
 
     private function buildSalesByProduct(string $from, string $to): Collection

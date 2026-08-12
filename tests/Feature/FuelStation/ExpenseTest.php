@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\FuelStation;
 
-use App\Models\Employee;
 use App\Models\Expense;
 use App\Services\BusinessDayService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -91,59 +90,5 @@ class ExpenseTest extends TestCase
         $this->assertEquals(750, (float) $expense->amount);
         $this->assertEquals('Updated repair cost', $expense->notes);
         $this->assertEquals($date, $expense->expense_date->toDateString());
-    }
-
-    public function test_salary_expense_uses_active_employee_salary_total(): void
-    {
-        $this->travelToBusinessHours();
-        $user = $this->createOwner();
-        $date = BusinessDayService::currentBusinessDate()->toDateString();
-
-        Employee::create([
-            'employee_code' => 'EMP-SAL-01',
-            'name' => 'First Attendant',
-            'status' => true,
-            'salary' => 30000,
-            'joining_date' => now()->subMonth(),
-        ]);
-
-        Employee::create([
-            'employee_code' => 'EMP-SAL-02',
-            'name' => 'Second Attendant',
-            'status' => true,
-            'salary' => 25000,
-            'joining_date' => now()->subMonth(),
-        ]);
-
-        Employee::create([
-            'employee_code' => 'EMP-SAL-03',
-            'name' => 'Inactive Attendant',
-            'status' => false,
-            'salary' => 40000,
-            'joining_date' => now()->subMonth(),
-        ]);
-
-        $this->actingAs($user)->post(route('expenses.store'), [
-            'expense_type' => 'Salary',
-            'amount' => 1,
-            'expense_date' => $date,
-            'notes' => 'Monthly payroll',
-        ])->assertRedirect(route('expenses.index'));
-
-        $expense = Expense::first();
-        $this->assertEquals(55000.0, (float) $expense->amount);
-        $this->assertEquals($date, $expense->expense_date->toDateString());
-
-        $response = $this->actingAs($user)->put(route('expenses.update', $expense), [
-            'expense_type' => 'Salary',
-            'amount' => 1000,
-            'expense_date' => $date,
-            'notes' => 'Monthly payroll updated',
-        ]);
-
-        $response->assertRedirect(route('expenses.index'));
-        $expense->refresh();
-        $this->assertEquals(55000.0, (float) $expense->amount);
-        $this->assertEquals('Monthly payroll updated', $expense->notes);
     }
 }

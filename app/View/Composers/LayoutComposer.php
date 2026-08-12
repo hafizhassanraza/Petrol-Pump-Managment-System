@@ -41,12 +41,18 @@ class LayoutComposer
             str_starts_with($name, 'employees.') => match ($name) {
                 'employees.create' => 'Add Employee',
                 'employees.edit' => 'Edit Employee',
+                'employees.ledger' => 'Employee Payment Ledger',
                 default => 'Employees',
             },
             str_starts_with($name, 'employee-attendances.') => match ($name) {
                 'employee-attendances.create' => 'Mark Attendance',
                 'employee-attendances.edit' => 'Edit Attendance',
                 default => 'Employee Attendance',
+            },
+            str_starts_with($name, 'employee-salaries.') => match ($name) {
+                'employee-salaries.create' => 'Add Salary Payment',
+                'employee-salaries.edit' => 'Edit Salary Payment',
+                default => 'Employee Salaries',
             },
             str_starts_with($name, 'employee-shifts.') => match ($name) {
                 'employee-shifts.create' => 'Assign Shift',
@@ -79,6 +85,7 @@ class LayoutComposer
                 'cash-transactions.edit' => 'Edit Cash Transaction',
                 default => 'Cash In / Out',
             },
+            str_starts_with($name, 'audit-logs.') => 'Activity Logs',
             str_starts_with($name, 'mobil-oil.products.') => match ($name) {
                 'mobil-oil.products.create' => 'Add Mobil Oil Product',
                 'mobil-oil.products.edit' => 'Edit Mobil Oil Product',
@@ -98,6 +105,7 @@ class LayoutComposer
                 'reports.profit-loss' => 'Profit & Loss Report',
                 'reports.stock' => 'Stock Report',
                 'reports.expenses' => 'Expense Report',
+                'reports.employee-salaries' => 'Employee Salaries Report',
                 'reports.variance' => 'Variance Report',
                 'reports.attendance' => 'Attendance Report',
                 'reports.mobil-oil-sales' => 'Mobil Oil Sales Report',

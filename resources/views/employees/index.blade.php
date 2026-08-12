@@ -26,6 +26,7 @@
                         <td>{{ number_format($e->salary, 0) }}</td>
                         <td>@if($e->status)<span class="status-active">Active</span>@else<span class="status-inactive">Inactive</span>@endif</td>
                         <td>
+                            <a href="{{ route('employees.ledger', $e) }}" class="btn btn-outline-primary btn-sm">Ledger</a>
                             <a href="{{ route('employees.edit', $e) }}" class="btn btn-warning btn-sm">Edit</a>
                             <form action="{{ route('employees.destroy', $e) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete employee?')">
                                 @csrf @method('DELETE')
