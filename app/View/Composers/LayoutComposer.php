@@ -62,6 +62,7 @@ class LayoutComposer
             },
             str_starts_with($name, 'tank-refills.') => match ($name) {
                 'tank-refills.create' => 'Add Tank Refill',
+                'tank-refills.edit' => 'Edit Tank Refill',
                 default => 'Tank Refills',
             },
             str_starts_with($name, 'tank-dip-readings.') => match ($name) {

@@ -81,7 +81,8 @@ Route::middleware(['auth', LogAuditTrail::class])->group(function () {
     Route::post('agency-credits/{credit}/payments', [AgencyCustomerController::class, 'storePayment'])
         ->name('agency-customers.credits.pay');
     Route::resource('tank-dip-readings', TankDipReadingController::class)->only(['index', 'create', 'store']);
-    Route::resource('tank-refills', TankRefillsController::class)->only(['index', 'create', 'store']);
+    Route::resource('tank-refills', TankRefillsController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::post('tank-refills/{tank_refill}/revert', [TankRefillsController::class, 'revert'])->name('tank-refills.revert');
 
     Route::resource('employee-shifts', EmployeeShiftController::class)->only(['index', 'create', 'store']);
     Route::get('employee-shifts/{id}/edit', [EmployeeShiftController::class, 'edit'])->name('employee-shifts.edit');

@@ -3,6 +3,13 @@
 @section('content')
 @include('partials.period-filter')
 
+@if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
+
 <div class="page-card">
     <div class="list-toolbar">
         <a href="{{ route('tank-refills.create') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add Refill</a>
@@ -19,6 +26,7 @@
                     <th>Rate</th>
                     <th>Total</th>
                     <th>Received</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,9 +40,17 @@
                         <td>{{ number_format($r->purchase_rate, 2) }}</td>
                         <td><strong>{{ money($r->total_amount) }}</strong></td>
                         <td>{{ $r->received_datetime ? \Carbon\Carbon::parse($r->received_datetime)->format('d M Y H:i') : '—' }}</td>
+                        <td class="text-nowrap">
+                            <a href="{{ route('tank-refills.edit', $r) }}" class="btn btn-warning btn-sm">Edit</a>
+                            <form method="POST" action="{{ route('tank-refills.revert', $r) }}" class="d-inline"
+                                  onsubmit="return confirm('Revert this refill? Tank stock will be reduced by {{ number_format($r->quantity_liters, 2) }} L and the record will be removed.')">
+                                @csrf
+                                <button class="btn btn-outline-danger btn-sm">Revert</button>
+                            </form>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="text-center text-muted py-4">No refills in this period.</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">No refills in this period.</td></tr>
                 @endforelse
             </tbody>
         </table>
