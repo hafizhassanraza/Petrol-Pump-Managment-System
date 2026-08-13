@@ -87,6 +87,7 @@ class LayoutComposer
                 default => 'Cash In / Out',
             },
             str_starts_with($name, 'audit-logs.') => 'Activity Logs',
+            str_starts_with($name, 'data-management.') => 'Data Management',
             str_starts_with($name, 'mobil-oil.products.') => match ($name) {
                 'mobil-oil.products.create' => 'Add Mobil Oil Product',
                 'mobil-oil.products.edit' => 'Edit Mobil Oil Product',

@@ -14,6 +14,7 @@ class LogAuditTrail
      */
     private const SKIP_ROUTE_PREFIXES = [
         'audit-logs.',
+        'data-management.',
         'password.',
         'verification.',
         'profile.',

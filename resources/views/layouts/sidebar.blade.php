@@ -47,6 +47,9 @@
     <a href="{{ route('audit-logs.index') }}" class="{{ request()->routeIs('audit-logs.*') ? 'active' : '' }}">
         <i class="bi bi-journal-text"></i> Activity Logs
     </a>
+    <a href="{{ route('data-management.index') }}" class="{{ request()->routeIs('data-management.*') ? 'active' : '' }}">
+        <i class="bi bi-hdd-network"></i> Data Management
+    </a>
 
     <div class="sidebar-section-label">Mobil Oil</div>
     <a href="{{ route('mobil-oil.products.index') }}" class="{{ request()->routeIs('mobil-oil.products.*') ? 'active' : '' }}">

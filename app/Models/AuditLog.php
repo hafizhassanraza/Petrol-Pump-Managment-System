@@ -81,6 +81,7 @@ class AuditLog extends Model
             'mobil-oil.purchases' => 'Mobil Oil Purchases',
             'mobil-oil.sales' => 'Mobil Oil Sales',
             'profile' => 'Profile',
+            'data-management' => 'Data Management',
         ];
 
         return $labels[$module] ?? \Illuminate\Support\Str::headline(str_replace(['-', '.'], ' ', $module));

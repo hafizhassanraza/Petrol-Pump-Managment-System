@@ -23,6 +23,7 @@ use App\Http\Controllers\MobilOilPurchaseController;
 use App\Http\Controllers\MobilOilSaleController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\EmployeeSalaryController;
+use App\Http\Controllers\DataManagementController;
 use App\Http\Middleware\LogAuditTrail;
 
 Route::get('/', [LandingController::class, 'index'])->name('home');
@@ -103,6 +104,11 @@ Route::middleware(['auth', LogAuditTrail::class])->group(function () {
 
     Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('audit-logs/pdf', [AuditLogController::class, 'pdf'])->name('audit-logs.pdf');
+
+    Route::get('data-management', [DataManagementController::class, 'index'])->name('data-management.index');
+    Route::get('data-management/export', [DataManagementController::class, 'export'])->name('data-management.export');
+    Route::post('data-management/import', [DataManagementController::class, 'import'])->name('data-management.import');
+    Route::post('data-management/revert', [DataManagementController::class, 'revert'])->name('data-management.revert');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

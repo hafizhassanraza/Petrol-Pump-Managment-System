@@ -32,6 +32,7 @@ class GuestAccessTest extends TestCase
             ['owner-fuel-usages.index'],
             ['agency-customers.index'],
             ['audit-logs.index'],
+            ['data-management.index'],
             ['mobil-oil.products.index'],
             ['mobil-oil.purchases.index'],
             ['mobil-oil.sales.index'],
