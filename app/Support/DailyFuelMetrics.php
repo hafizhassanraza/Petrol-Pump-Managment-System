@@ -299,11 +299,13 @@ class DailyFuelMetrics
             'purchase_rate' => null,
             'profit_per_liter' => null,
             'total_profit' => 0.0,
+            'segments' => [],
         ];
     }
 
     /**
      * Per-business-day Petrol / Diesel sales with rates and profit for daily breakdown cells.
+     * Same-day sales at different locked shift rates are returned as separate segments.
      *
      * @return Collection<string, array{petrol: array, diesel: array}>
      */
@@ -323,28 +325,28 @@ class DailyFuelMetrics
             ->get(['product_id', 'quantity_liters', 'purchase_rate', 'received_datetime']);
 
         $products = FuelProducts::all()->keyBy(fn (Product $p) => FuelProducts::keyFor($p));
+        $ids = FuelProducts::ids();
         $dates = $shifts
             ->map(fn ($s) => Carbon::parse($s->closed_date)->format('Y-m-d'))
             ->unique()
             ->sort()
             ->values();
 
-        return $dates->mapWithKeys(function (string $date) use ($shifts, $refills, $products) {
+        return $dates->mapWithKeys(function (string $date) use ($shifts, $refills, $products, $ids) {
             [$dayFrom, $dayTo] = BusinessDayService::businessDayBounds($date);
             $dayShifts = $shifts->filter(
                 fn ($s) => Carbon::parse($s->closed_date)->format('Y-m-d') === $date
             );
-            $split = self::splitShiftsByFuel($dayShifts);
 
             $rows = [];
             foreach (['petrol', 'diesel'] as $key) {
                 $product = $products->get($key);
-                $base = $split[$key] ?? self::emptyDaySplit();
-                $liters = (float) ($base['liters'] ?? 0);
-                $amount = (float) ($base['sales_amount'] ?? 0);
-                $saleRate = $liters > 0 ? round($amount / $liters, 2) : null;
-                $purchaseRate = null;
+                $productId = (int) ($ids[$key] ?? 0);
+                $productShifts = $dayShifts->filter(
+                    fn ($s) => (int) ($s->nozzle->product_id ?? 0) === $productId
+                )->values();
 
+                $purchaseRate = null;
                 if ($product) {
                     $productRefills = $refills->filter(
                         fn ($r) => (int) $r->product_id === (int) $product->id
@@ -353,27 +355,124 @@ class DailyFuelMetrics
                     $purchaseRate = self::resolvePurchaseRate($productRefills, $dayFrom, $dayTo);
                 }
 
-                $profitPerLiter = ($saleRate !== null && $purchaseRate !== null)
-                    ? round($saleRate - $purchaseRate, 2)
-                    : null;
+                $segments = self::buildRateSegments($productShifts, $purchaseRate);
+
+                $liters = round((float) collect($segments)->sum('liters'), 2);
+                $amount = round((float) collect($segments)->sum('sales_amount'), 2);
+                $cash = round((float) collect($segments)->sum('cash'), 2);
+                $online = round((float) collect($segments)->sum('online'), 2);
+                $totalProfit = round((float) collect($segments)->sum('total_profit'), 2);
+
+                $saleRate = null;
+                $profitPerLiter = null;
+                if (count($segments) === 1) {
+                    $saleRate = $segments[0]['sale_rate'];
+                    $profitPerLiter = $segments[0]['profit_per_liter'];
+                } elseif ($liters > 0) {
+                    // Keep blended rate only as a fallback aggregate; UI uses segments.
+                    $saleRate = round($amount / $liters, 2);
+                    $profitPerLiter = $purchaseRate !== null
+                        ? round($saleRate - $purchaseRate, 2)
+                        : null;
+                }
 
                 $rows[$key] = [
                     'liters' => $liters,
                     'quantity' => $liters,
                     'sales_amount' => $amount,
-                    'cash' => (float) ($base['cash'] ?? 0),
-                    'online' => (float) ($base['online'] ?? 0),
+                    'cash' => $cash,
+                    'online' => $online,
                     'sale_rate' => $saleRate,
                     'purchase_rate' => $purchaseRate,
                     'profit_per_liter' => $profitPerLiter,
-                    'total_profit' => ($profitPerLiter !== null && $liters > 0)
-                        ? round($liters * $profitPerLiter, 2)
-                        : 0.0,
+                    'total_profit' => $totalProfit,
+                    'segments' => $segments,
                 ];
             }
 
             return [$date => $rows];
         });
+    }
+
+    /**
+     * Group closed shifts by locked sale rate (price_per_liter).
+     *
+     * @param  Collection<int, EmployeeShift>  $shifts
+     * @return list<array{
+     *     liters: float,
+     *     quantity: float,
+     *     sales_amount: float,
+     *     cash: float,
+     *     online: float,
+     *     sale_rate: float|null,
+     *     purchase_rate: float|null,
+     *     profit_per_liter: float|null,
+     *     total_profit: float,
+     *     shift_count: int
+     * }>
+     */
+    public static function buildRateSegments(Collection $shifts, ?float $purchaseRate): array
+    {
+        if ($shifts->isEmpty()) {
+            return [];
+        }
+
+        $groups = $shifts
+            ->sortBy(fn ($s) => [(int) $s->id, (string) ($s->submitted_at ?? '')])
+            ->groupBy(function ($shift) {
+                $locked = $shift->price_per_liter;
+                if ($locked !== null && $locked !== '') {
+                    return number_format((float) $locked, 2, '.', '');
+                }
+
+                $liters = (float) $shift->total_liters;
+                $amount = (float) $shift->total_amount;
+                if ($liters > 0) {
+                    return number_format($amount / $liters, 2, '.', '');
+                }
+
+                return '0.00';
+            });
+
+        $segments = [];
+
+        foreach ($groups as $rateKey => $group) {
+            $liters = round((float) $group->sum('total_liters'), 2);
+            $amount = round((float) $group->sum('total_amount'), 2);
+            $cash = round((float) $group->sum('cash_received'), 2);
+            $online = round((float) $group->sum('online_received'), 2);
+
+            $saleRate = null;
+            $locked = $group->first(fn ($s) => $s->price_per_liter !== null && $s->price_per_liter !== '');
+            if ($locked) {
+                $saleRate = round((float) $locked->price_per_liter, 2);
+            } elseif ($liters > 0) {
+                $saleRate = round($amount / $liters, 2);
+            } else {
+                $saleRate = round((float) $rateKey, 2);
+            }
+
+            $profitPerLiter = ($saleRate !== null && $purchaseRate !== null)
+                ? round($saleRate - $purchaseRate, 2)
+                : null;
+
+            $segments[] = [
+                'liters' => $liters,
+                'quantity' => $liters,
+                'sales_amount' => $amount,
+                'cash' => $cash,
+                'online' => $online,
+                'sale_rate' => $saleRate,
+                'purchase_rate' => $purchaseRate,
+                'profit_per_liter' => $profitPerLiter,
+                'total_profit' => ($profitPerLiter !== null && $liters > 0)
+                    ? round($liters * $profitPerLiter, 2)
+                    : 0.0,
+                'shift_count' => $group->count(),
+            ];
+        }
+
+        return $segments;
     }
 
     /**

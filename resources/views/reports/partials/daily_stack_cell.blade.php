@@ -1,14 +1,24 @@
 {{--
-  Fuel cell: Close stock, rate × qty, amount, Profit.
+  Fuel cell: Close stock, rate × qty (one block per sale-rate segment), amount, Profit.
   Mobil Oil: rate × qty, amount, Profit (no stock).
 --}}
 @php
-    $qty = (float) ($row['liters'] ?? $row['quantity'] ?? 0);
-    $amount = (float) ($row['sales_amount'] ?? 0);
-    $profit = (float) ($row['total_profit'] ?? 0);
+    $segments = collect($row['segments'] ?? [])
+        ->filter(fn ($s) => ((float) ($s['liters'] ?? 0)) > 0 || ((float) ($s['sales_amount'] ?? 0)) > 0)
+        ->values();
+
+    if ($segments->isEmpty() && (((float) ($row['liters'] ?? $row['quantity'] ?? 0)) > 0 || ((float) ($row['sales_amount'] ?? 0)) > 0)) {
+        $segments = collect([[
+            'liters' => (float) ($row['liters'] ?? $row['quantity'] ?? 0),
+            'sales_amount' => (float) ($row['sales_amount'] ?? 0),
+            'sale_rate' => $row['sale_rate'] ?? null,
+            'total_profit' => (float) ($row['total_profit'] ?? 0),
+        ]]);
+    }
+
     $showStock = ! empty($row['show_stock']);
     $closeStock = (float) ($row['stock_closing'] ?? 0);
-    $hasSale = $qty > 0 || $amount > 0;
+    $hasSale = $segments->isNotEmpty();
 @endphp
 <div class="daily-stack-cell">
     @if($showStock)
@@ -16,9 +26,18 @@
     @endif
 
     @if($hasSale)
-        <div class="stack-rate">{{ $row['sale_rate'] !== null ? rate($row['sale_rate']) : '—' }} × {{ number_format($qty, 2) }}</div>
-        <div class="stack-amount">{{ money($amount) }}</div>
-        <div class="stack-profit">Profit {{ money($profit) }}</div>
+        @foreach($segments as $segment)
+            @php
+                $qty = (float) ($segment['liters'] ?? $segment['quantity'] ?? 0);
+                $amount = (float) ($segment['sales_amount'] ?? 0);
+                $profit = (float) ($segment['total_profit'] ?? 0);
+            @endphp
+            <div class="stack-sale-block @if(! $loop->first) stack-sale-block-split @endif">
+                <div class="stack-rate">{{ $segment['sale_rate'] !== null ? rate($segment['sale_rate']) : '—' }} × {{ number_format($qty, 2) }}</div>
+                <div class="stack-amount">{{ money($amount) }}</div>
+                <div class="stack-profit">Profit {{ money($profit) }}</div>
+            </div>
+        @endforeach
     @elseif(! $showStock)
         <span class="text-muted">—</span>
     @endif

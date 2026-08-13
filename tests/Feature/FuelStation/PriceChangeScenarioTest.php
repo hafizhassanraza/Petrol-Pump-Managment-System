@@ -134,6 +134,78 @@ class PriceChangeScenarioTest extends TestCase
         $this->assertEquals(32500.0, (float) TankRefill::sum('total_amount'));
     }
 
+    public function test_daily_sales_shows_separate_rows_for_same_day_price_change(): void
+    {
+        $this->travelToBusinessHours();
+
+        $graph = $this->createFuelStationGraph(
+            tankStock: 1000,
+            pricePerLiter: 331,
+            meterReading: 1000,
+        );
+
+        $user = $graph['user'];
+        $nozzle = $graph['nozzle'];
+        $employee = $graph['employee'];
+        $product = $graph['product'];
+
+        $this->actingAs($user)->post(route('employee-shifts.store'), [
+            'employee_id' => $employee->id,
+            'nozzle_id' => $nozzle->id,
+            'opening_reading' => 1000,
+        ]);
+        $shift1 = EmployeeShift::first();
+        $this->actingAs($user)->post(route('employee-shifts.close', $shift1->id), [
+            'closing_reading' => 1010,
+            'testing_liters' => 0,
+            'cash_received' => 3310,
+            'online_received' => 0,
+        ])->assertRedirect(route('employee-shifts.index'));
+
+        $this->assertEquals(331, (float) $shift1->fresh()->price_per_liter);
+
+        $this->travel(2)->minutes();
+        ProductPriceService::setPrice($product->id, 330, now(), $user->id);
+
+        $this->actingAs($user)->post(route('employee-shifts.store'), [
+            'employee_id' => $employee->id,
+            'nozzle_id' => $nozzle->id,
+            'opening_reading' => 1010,
+        ]);
+        $shift2 = EmployeeShift::orderByDesc('id')->first();
+        $this->actingAs($user)->post(route('employee-shifts.close', $shift2->id), [
+            'closing_reading' => 1015,
+            'testing_liters' => 0,
+            'cash_received' => 1650,
+            'online_received' => 0,
+        ])->assertRedirect(route('employee-shifts.index'));
+
+        $this->assertEquals(330, (float) $shift2->fresh()->price_per_liter);
+
+        $metrics = \App\Support\DailyFuelMetrics::dailyByProduct(
+            $shift1->fresh()->closed_date->toDateString(),
+            $shift2->fresh()->closed_date->toDateString(),
+        );
+        $date = $shift1->fresh()->closed_date->toDateString();
+        $petrol = $metrics[$date]['petrol'];
+
+        $this->assertCount(2, $petrol['segments']);
+        $this->assertEquals(10.0, (float) $petrol['segments'][0]['liters']);
+        $this->assertEquals(331.0, (float) $petrol['segments'][0]['sale_rate']);
+        $this->assertEquals(5.0, (float) $petrol['segments'][1]['liters']);
+        $this->assertEquals(330.0, (float) $petrol['segments'][1]['sale_rate']);
+        $this->assertEquals(15.0, (float) $petrol['liters']);
+        $this->assertEquals(4960.0, (float) $petrol['sales_amount']);
+
+        $this->actingAs($user)
+            ->get(route('reports.daily-sales', ['filter' => 'today']))
+            ->assertOk()
+            ->assertSee('331.00 × 10.00')
+            ->assertSee('330.00 × 5.00')
+            ->assertDontSee('330.67 × 15.00')
+            ->assertDontSee('330.00 × 15.00');
+    }
+
     public function test_old_shift_amount_stays_locked_when_sale_price_changes_later(): void
     {
         $this->travelToBusinessHours();

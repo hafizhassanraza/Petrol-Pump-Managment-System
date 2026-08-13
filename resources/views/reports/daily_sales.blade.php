@@ -445,6 +445,7 @@
     .daily-stack-cell .stack-stock-value { font-size: 13px; font-weight: 600; color: #1e293b; }
     .daily-stack-cell .stack-block-label { font-size: 11px; color: #64748b; }
     .daily-stack-cell .stack-block-value { font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+    .daily-stack-cell .stack-sale-block-split { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #cbd5e1; }
     .daily-total-cell .stack-amount { font-size: 15px; font-weight: 700; color: #1e293b; }
     .daily-total-cell .stack-split { font-size: 12px; color: #64748b; line-height: 1.4; }
     .excel-table td.stack-td { text-align: right; vertical-align: top; }

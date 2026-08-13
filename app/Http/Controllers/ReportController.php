@@ -271,15 +271,28 @@ class ReportController extends Controller
             ]);
 
             $stackExpr = function (array $row): string {
-                $qty = (float) ($row['liters'] ?? $row['quantity'] ?? 0);
-                $amount = (float) ($row['sales_amount'] ?? 0);
-                if ($qty <= 0 && $amount <= 0) {
-                    return '';
+                $segments = collect($row['segments'] ?? [])
+                    ->filter(fn ($s) => ((float) ($s['liters'] ?? 0)) > 0 || ((float) ($s['sales_amount'] ?? 0)) > 0)
+                    ->values();
+
+                if ($segments->isEmpty()) {
+                    $qty = (float) ($row['liters'] ?? $row['quantity'] ?? 0);
+                    $amount = (float) ($row['sales_amount'] ?? 0);
+                    if ($qty <= 0 && $amount <= 0) {
+                        return '';
+                    }
+
+                    $rate = $row['sale_rate'] !== null ? rate($row['sale_rate']) : '—';
+
+                    return $rate.' × '.number_format($qty, 2);
                 }
 
-                $rate = $row['sale_rate'] !== null ? rate($row['sale_rate']) : '—';
+                return $segments->map(function (array $segment) {
+                    $qty = (float) ($segment['liters'] ?? $segment['quantity'] ?? 0);
+                    $rate = ($segment['sale_rate'] ?? null) !== null ? rate($segment['sale_rate']) : '—';
 
-                return $rate.' × '.number_format($qty, 2);
+                    return $rate.' × '.number_format($qty, 2);
+                })->implode(' | ');
             };
 
             foreach ($dailyTotals as $day) {
