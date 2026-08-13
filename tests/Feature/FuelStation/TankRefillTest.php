@@ -180,7 +180,7 @@ class TankRefillTest extends TestCase
         $this->assertDatabaseHas('tank_refills', ['id' => $refill->id]);
     }
 
-    public function test_index_shows_edit_and_revert_actions(): void
+    public function test_index_shows_edit_action_without_revert(): void
     {
         $graph = $this->createFuelStationGraph(tankStock: 1000);
 
@@ -192,11 +192,17 @@ class TankRefillTest extends TestCase
         ])->assertRedirect(route('tank-refills.index'));
 
         $refill = TankRefill::firstOrFail();
+        $date = $refill->received_datetime->toDateString();
 
         $this->actingAs($graph['user'])
-            ->get(route('tank-refills.index', ['filter' => 'today']))
+            ->get(route('tank-refills.index', [
+                'filter' => 'custom',
+                'from' => $date,
+                'to' => $date,
+            ]))
             ->assertOk()
             ->assertSee(route('tank-refills.edit', $refill), false)
-            ->assertSee(route('tank-refills.revert', $refill), false);
+            ->assertDontSee(route('tank-refills.revert', $refill), false)
+            ->assertDontSee('>Revert</button>', false);
     }
 }

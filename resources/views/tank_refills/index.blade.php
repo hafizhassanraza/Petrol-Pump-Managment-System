@@ -42,11 +42,6 @@
                         <td>{{ $r->received_datetime ? \Carbon\Carbon::parse($r->received_datetime)->format('d M Y H:i') : '—' }}</td>
                         <td class="text-nowrap">
                             <a href="{{ route('tank-refills.edit', $r) }}" class="btn btn-warning btn-sm">Edit</a>
-                            <form method="POST" action="{{ route('tank-refills.revert', $r) }}" class="d-inline"
-                                  onsubmit="return confirm('Revert this refill? Tank stock will be reduced by {{ number_format($r->quantity_liters, 2) }} L and the record will be removed.')">
-                                @csrf
-                                <button class="btn btn-outline-danger btn-sm">Revert</button>
-                            </form>
                         </td>
                     </tr>
                 @empty
