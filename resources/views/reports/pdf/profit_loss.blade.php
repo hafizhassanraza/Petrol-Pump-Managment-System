@@ -55,7 +55,7 @@ Profit &amp; Loss Report
         <tr>
             <td>Owner Fuel Usage (excluded from sales)</td>
             <td>—</td>
-            <td>{{ money($ownerFuel) }}</td>
+            <td>- {{ money($ownerFuel) }}</td>
         </tr>
         <tr>
             <td><strong>Total Operating Expense</strong></td>

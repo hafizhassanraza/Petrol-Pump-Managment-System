@@ -259,8 +259,8 @@
             <div class="stat-row"><span>Total Expenses</span><strong class="text-loss">PKR {{ money($periodExpense) }}</strong></div>
             <div class="stat-row"><span>Employee Salaries</span><strong class="text-loss">PKR {{ money($periodSalary) }}</strong></div>
             <div class="stat-row">
-                <span>Owner Fuel Usage <small class="text-muted">(excluded from sales)</small></span>
-                <strong>PKR {{ money($periodOwnerFuel) }}</strong>
+                <span>Owner Fuel Usage</span>
+                <strong class="text-loss">PKR {{ money($periodOwnerFuel) }}</strong>
             </div>
             <div class="stat-row"><span>Tank Refill Purchases</span><strong>PKR {{ money($periodRefills) }}</strong></div>
             <div class="stat-row"><span>Liters Sold</span><strong>{{ number_format($periodLiters, 2) }} L</strong></div>

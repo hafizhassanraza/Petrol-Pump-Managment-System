@@ -61,8 +61,7 @@ class DashboardController extends Controller
         $periodOwnerFuel = (float) OwnerFuelUsage::whereBetween('usage_datetime', [$fromAt, $toAt])->sum('total_amount');
         $periodRefills = (float) TankRefill::whereBetween('received_datetime', [$fromAt, $toAt])->sum('total_amount');
         $periodMobilOilSales = (float) MobilOilSale::whereBetween('sold_datetime', [$fromAt, $toAt])->sum('total_amount');
-        // Owner fuel is already excluded from shift sales totals — do not deduct again.
-        $periodNet = $periodSales + $periodMobilOilSales - $periodExpense - $periodSalary;
+        $periodNet = $periodSales + $periodMobilOilSales - $periodExpense - $periodSalary - $periodOwnerFuel;
 
         $mtdSales = (float) EmployeeShift::closedBetween($monthStart, $businessDateStr)
             ->whereIn('status', ['submitted', 'verified'])
@@ -78,7 +77,7 @@ class DashboardController extends Controller
             Carbon::parse($monthStart)->setTime(9, 0),
             $monthToAt,
         ])->sum('total_amount');
-        $mtdNet = $mtdSales - $mtdExpense - $mtdSalary;
+        $mtdNet = $mtdSales - $mtdExpense - $mtdSalary - $mtdOwnerFuel;
         $mtdRefills = (float) TankRefill::whereBetween('received_datetime', [
             Carbon::parse($monthStart)->startOfDay(),
             $monthToAt,
@@ -228,7 +227,7 @@ class DashboardController extends Controller
             $salaries[] = $daySalary;
             $ownerFuel[] = $dayOwnerFuel;
             $liters[] = $dayLiters;
-            $net[] = $totalDaySales - $dayExpense - $daySalary;
+            $net[] = $totalDaySales - $dayExpense - $daySalary - $dayOwnerFuel;
         }
 
         return compact('labels', 'sales', 'expenses', 'salaries', 'ownerFuel', 'net', 'liters');

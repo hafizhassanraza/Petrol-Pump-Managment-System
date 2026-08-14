@@ -120,10 +120,10 @@
             <tr>
                 <td>
                     Owner Fuel Usage
-                    <small class="text-muted d-block">Already excluded from sales (not deducted again)</small>
+                    <small class="text-muted d-block">Excluded from sales; included in Total Operating Expense (not deducted again from net)</small>
                 </td>
                 <td style="text-align: right;">—</td>
-                <td style="text-align: right;">{{ money($ownerFuel) }}</td>
+                <td style="text-align: right;" class="text-loss">- {{ money($ownerFuel) }}</td>
             </tr>
             <tr style="background:#f8fafc; font-weight:600;">
                 <td>Total Operating Expense</td>

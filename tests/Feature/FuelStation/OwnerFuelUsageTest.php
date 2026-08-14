@@ -101,16 +101,17 @@ class OwnerFuelUsageTest extends TestCase
         $this->assertEquals(15000.0, (float) $shift->total_amount);
         $this->assertEquals(3000.0, (float) OwnerFuelUsage::sum('total_amount'));
 
-        // Net = sales 15000 - expense 1000 = 14000 (owner fuel must NOT be deducted again).
+        // Period Summary net = sales 15000 - expense 1000 - owner fuel 3000 = 11000.
+        // Total Operating Expense on P&L = expenses + salaries + owner fuel = 4000.
         $dashboard = $this->actingAs($graph['user'])->get(route('dashboard', [
             'filter' => 'custom',
             'from' => $closedDate,
             'to' => $closedDate,
         ]));
         $dashboard->assertOk();
-        $dashboard->assertSee('excluded from sales', false);
-        $dashboard->assertSee('15000', false);
-        $dashboard->assertSee('14000', false);
+        $dashboard->assertSee('Owner Fuel Usage', false);
+        $dashboard->assertSee('15,000', false);
+        $dashboard->assertSee('11,000', false);
 
         $pl = $this->actingAs($graph['user'])->get(route('reports.profit-loss', [
             'filter' => 'custom',
@@ -118,7 +119,9 @@ class OwnerFuelUsageTest extends TestCase
             'to' => $closedDate,
         ]));
         $pl->assertOk();
-        $pl->assertSee('Already excluded from sales', false);
-        $pl->assertDontSee('- 3,000', false);
+        $pl->assertSee('Total Operating Expense', false);
+        $pl->assertSee('- 4,000', false); // expenses 1,000 + salaries 0 + owner fuel 3,000
+        $pl->assertSee('- 3,000', false);
+        $pl->assertSee('- 1,000', false);
     }
 }

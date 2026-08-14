@@ -402,8 +402,9 @@ class ReportController extends Controller
         $fuelSalesProfit = (float) $productBreakdown->sum('total_profit');
         $mobilOilSalesProfit = (float) $mobilOilBreakdown->sum('total_profit');
         $totalSalesProfit = $fuelSalesProfit + $mobilOilSalesProfit;
-        // Owner fuel liters are already removed from shift sales on close — do not deduct again.
-        $operatingAndOwnerTotal = $expenses + $salaries;
+        // Total Operating Expense = operating expenses + salaries + owner fuel (informational cost).
+        // Owner fuel liters are already removed from shift sales on close — do not deduct again from net.
+        $operatingAndOwnerTotal = $expenses + $salaries + $ownerFuel;
         $netSalesProfit = $totalSalesProfit - $expenses - $salaries;
 
         return array_merge($range, compact(
@@ -483,7 +484,7 @@ class ReportController extends Controller
             fputcsv($f, ['Total', money($data['sales']), money($data['totalSalesProfit'])]);
             fputcsv($f, ['Operating Expenses', '', '- '.money($data['expenses'])]);
             fputcsv($f, ['Employee Salaries', '', '- '.money($data['salaries'])]);
-            fputcsv($f, ['Owner Fuel Usage (excluded from sales)', '', money($data['ownerFuel'])]);
+            fputcsv($f, ['Owner Fuel Usage (excluded from sales)', '', '- '.money($data['ownerFuel'])]);
             fputcsv($f, ['Total Operating Expense', '', '- '.money($data['operatingAndOwnerTotal'])]);
             fputcsv($f, ['Net Profit (Inc. Total Expense)', '', money($data['netSalesProfit'])]);
 
